@@ -28,6 +28,7 @@ tokens :-
     if                            { tok (\p s -> TkIf p)}
     else                          { tok (\p s -> TkElse p)}
     end                           { tok (\p s -> TkEnd p)}
+    at                           { tok (\p s -> TkAt p)}
     read                          { tok (\p s -> TkRead p)}
     write                         { tok (\p s -> TkWrite p)}
     true                          { tok (\p s -> TkTrue p)}
@@ -83,6 +84,7 @@ data Token =
     TkIf             AlexPosn |
     TkElse           AlexPosn |
     TkEnd            AlexPosn |
+    TkAt             AlexPosn |
     TkRead           AlexPosn |
     TkWrite          AlexPosn |
     TkIdent          AlexPosn String |
@@ -121,24 +123,31 @@ data Token =
 instance Data AlexPosn
 instance Typeable AlexPosn
 
-instance Show [Token] where
-    show xs = mapM_ print xs
-
 instance Show Token where
     show (TkIdent p id) = "TkIdent(\"" ++ id ++ "\")"
     show (TkNum p n)    = "TkNum(" ++ (show n) ++ ")"
     show t              = showConstr $ toConstr t
+
+lexError r line col =
+    "Error: Caracter inesperado " ++ (show $ head r) ++
+    " en la fila " ++ (show line) ++ ", columna " ++ (show col)
     
-scanner str = go (alexStartPos,'\n',[],str)
-  where go inp@(pos,_,_,str) =
-          case alexScan inp 0 of
-                AlexEOF -> []
-                AlexError inp'@((AlexPn _ line column),_,_,r) -> do 
-                    error $ "Caracter inesperado " ++ (show $ head r) ++ " en la fila " ++ (show line) ++ ", columna " ++ (show column)
-                AlexSkip  inp' len     -> go inp'
-                AlexToken inp' len act -> act pos (take len str) : go inp'
+scanner str = go ([],[]) (alexStartPos,'\n',[],str)
+    where go (exs, txs) inp@(pos,_,_,str) =
+            case alexScan inp 0 of
+                AlexEOF -> (exs, txs)
+                AlexError inp'@(p@(AlexPn _ line column),c,br,r) -> ((lexError r line column) : exs', txs')
+                    where (exs', txs') = go (exs, txs) (p,c,br,tail r)
+                AlexSkip  inp' _     -> (exs', txs')
+                    where (exs', txs') = go (exs, txs) inp'
+                AlexToken inp' len act -> (exs', (act pos (take len str)) : txs') 
+                    where (exs', txs') = go (exs, txs) inp'
 
 main = do
     s <- getContents
-    print (scanner s)
+    let (errores, tokens) = scanner s
+    if null errores then
+        mapM_ print tokens
+    else
+        mapM_ print errores
 }
