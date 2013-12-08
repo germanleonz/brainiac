@@ -1,6 +1,6 @@
 {
 {-# LANGUAGE DeriveDataTypeable #-}
-module Main (main) where
+module LexBrainiac (main, scanner) where
 import Data.Data
 import Data.Typeable
 }
@@ -132,12 +132,12 @@ lexError r line col =
     "Error: Caracter inesperado " ++ (show $ head r) ++
     " en la fila " ++ (show line) ++ ", columna " ++ (show col)
     
-scanner str = go ([],[]) (alexStartPos,'\n',str)
-    where go (exs, txs) inp@(pos,_,str) =
+scanner str = go ([],[]) (alexStartPos,'\n',[],str)
+    where go (exs, txs) inp@(pos,_,_,str) =
             case alexScan inp 0 of
                 AlexEOF -> (exs, txs)
-                AlexError inp'@(p@(AlexPn _ line column),c,r) -> ((lexError r line column) : exs', txs')
-                    where (exs', txs') = go (exs, txs) (p,c,tail r)
+                AlexError inp'@(p@(AlexPn _ line column),c,br,r) -> ((lexError r line column) : exs', txs')
+                    where (exs', txs') = go (exs, txs) (p,c,br,tail r)
                 AlexSkip  inp' _     -> (exs', txs')
                     where (exs', txs') = go (exs, txs) inp'
                 AlexToken inp' len act -> (exs', (act pos (take len str)) : txs') 
@@ -146,7 +146,8 @@ scanner str = go ([],[]) (alexStartPos,'\n',str)
 main = do
     s <- getContents
     let (errores, tokens) = scanner s
-    if null errores
-        then mapM_ print tokens
-        else mapM_ print errores
+    if null errores then
+        mapM_ print tokens
+    else
+        mapM_ print errores
 }
