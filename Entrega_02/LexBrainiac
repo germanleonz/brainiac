@@ -1,0 +1,13 @@
+#!/usr/bin/perl -w
+
+#   Script para correr el parser generado por Happy
+#   Autor: German Leon
+
+my $x             = 'LexBrainiax.x';
+my $y             = 'SinBrainiac.y';
+my $lexer         = 'LexBrainiax.hs';
+my $brainiac_file = $ARGV[0];
+
+system("alex -g $x") unless (-e $lexer);
+system("ghc --make -o Lex $lexer") unless (-e "Lex");
+system("./Lex < $programa");
