@@ -1,7 +1,7 @@
 {
 module ParBrainiac (parse) where
 
-import LexBrainiac (scanner)
+import LexBrainiac (lexer)
 import ParserM (Token(..), Tree(..), ParserM, run_parser, get_pos, show_pos,
                 happyError)
 }
@@ -9,7 +9,7 @@ import ParserM (Token(..), Tree(..), ParserM, run_parser, get_pos, show_pos,
 %name      parsex tree
 %tokentype { Token }
 %monad     { ParserM }
-%lexer     { lex_tok } { TEOF }
+%lexer     { lexer } { TEOF }
 
 %token
 fork { TFork }

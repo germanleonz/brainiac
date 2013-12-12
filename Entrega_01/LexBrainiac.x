@@ -1,6 +1,7 @@
 {
 {-# LANGUAGE DeriveDataTypeable #-}
-module Main (main) where
+module LexBrainiac (lexer, Token(..)) where
+
 import Data.Data
 import Data.Typeable
 }
@@ -64,9 +65,6 @@ tokens :-
     ":="                          { tok (\p s -> TkAsignacion p)}
 {
 
--- Each right-hand side has type :: AlexPosn -> String -> Token
-
---  some action helpers:
 tok f p s = f p s
 
 --  El tipo token
@@ -132,7 +130,7 @@ lexError r line col =
     "Error: Caracter inesperado " ++ (show $ head r) ++
     " en la fila " ++ (show line) ++ ", columna " ++ (show col)
     
-scanner str = go ([],[]) (alexStartPos,'\n',str)
+lexer str = go ([],[]) (alexStartPos,'\n',str)
     where go (exs, txs) inp@(pos,_,str) =
             case alexScan inp 0 of
                 AlexEOF -> (exs, txs)
@@ -142,11 +140,4 @@ scanner str = go ([],[]) (alexStartPos,'\n',str)
                     where (exs', txs') = go (exs, txs) inp'
                 AlexToken inp' len act -> (exs', (act pos (take len str)) : txs') 
                     where (exs', txs') = go (exs, txs) inp'
-
-main = do
-    s <- getContents
-    let (errores, tokens) = scanner s
-    if null errores
-        then mapM_ print tokens
-        else mapM_ print errores
 }

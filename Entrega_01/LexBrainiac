@@ -1,12 +1,14 @@
 #!/usr/bin/perl -w
-
+#
 #   Script para correr el lexer generado por Alex
 #   Autor: German Leon
+#
 
-my $x       = 'LexBrainiax.x';
-my $lexer   = 'LexBrainiax.hs';
-my $programa = $ARGV[0];
+my $x             = 'LexBrainiac.x';
+my $lexer         = 'LexBrainiac.hs';
+my $lexer_test    = 'LexBrainiacTest.hs';
+my $brainiac_file = $ARGV[0];
 
-system("alex -g $x") unless (-e $lexer);
-system("ghc --make -o Lex $lexer") unless (-e "Lex");
-system("./Lex < $programa");
+system("alex -g $x");
+system("ghc -o LexBrainiacTest --make $lexer $lexer_test");
+system("./LexBrainiacTest < $brainiac_file");
