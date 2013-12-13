@@ -28,6 +28,7 @@ tokens :-
     tape                          { tok (\p s -> TkTape p)} 
     if                            { tok (\p s -> TkIf p)}
     else                          { tok (\p s -> TkElse p)}
+    then                          { tok (\p s -> TkThen p)}
     end                           { tok (\p s -> TkEnd p)}
     at                           { tok (\p s -> TkAt p)}
     read                          { tok (\p s -> TkRead p)}
@@ -81,6 +82,7 @@ data Token =
     TkTape           AlexPosn |
     TkIf             AlexPosn |
     TkElse           AlexPosn |
+    TkThen           AlexPosn |
     TkEnd            AlexPosn |
     TkAt             AlexPosn |
     TkRead           AlexPosn |
