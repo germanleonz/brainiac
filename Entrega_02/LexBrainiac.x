@@ -19,6 +19,7 @@ tokens :-
     declare                       { tok (\p s -> TkDeclare p)}
     execute                       { tok (\p s -> TkExecute p)}
     while                         { tok (\p s -> TkWhile p)}
+    for                           { tok (\p s -> TkFor p)}
     from                          { tok (\p s -> TkFrom p)}
     to                            { tok (\p s -> TkTo p)}
     do                            { tok (\p s -> TkDo p)}
@@ -60,7 +61,7 @@ tokens :-
     \>                            { tok (\p s -> TkMayor p)}
     ">="                          { tok (\p s -> TkMayorIgual p)}
     \=                            { tok (\p s -> TkIgual p)}
-    "\="                          { tok (\p s -> TkDesigual p)}
+    "/="                          { tok (\p s -> TkDesigual p)}
     \&                            { tok (\p s -> TkConcat p)}
     \#                            { tok (\p s -> TkInspeccion p)}
     ":="                          { tok (\p s -> TkAsignacion p)}
@@ -73,6 +74,7 @@ data Token =
     TkDeclare        AlexPosn |
     TkExecute        AlexPosn |
     TkWhile          AlexPosn |
+    TkFor            AlexPosn |
     TkFrom           AlexPosn |
     TkTo             AlexPosn |
     TkDo             AlexPosn |
