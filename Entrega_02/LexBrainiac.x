@@ -29,7 +29,7 @@ tokens :-
     if                            { tok (\p s -> TkIf p)}
     else                          { tok (\p s -> TkElse p)}
     end                           { tok (\p s -> TkEnd p)}
-    at                           { tok (\p s -> TkAt p)}
+    at                            { tok (\p s -> TkAt p)}
     read                          { tok (\p s -> TkRead p)}
     write                         { tok (\p s -> TkWrite p)}
     true                          { tok (\p s -> TkTrue p)}
