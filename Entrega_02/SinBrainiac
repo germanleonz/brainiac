@@ -4,7 +4,7 @@
 #   Autor: German Leon
 #
 
-my $x             = 'LexBrainiac.x';
+my $x             = '../Entrega_01/LexBrainiac.x';
 my $lexer         = 'LexBrainiac.hs';
 my $lexer_test    = 'LexBrainiacTest.hs';
 
