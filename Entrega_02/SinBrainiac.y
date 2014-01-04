@@ -3,145 +3,116 @@ module SinBrainiac (parse) where
 import LexBrainiac 
 }
 
-%name      parse 
+%name parse
 %tokentype { Token }
-%lexer     { lexer } { T_EOF }
+%lexer     { lexer2 } { TkEOF }
 
 %token 
 
-    varT                          { TkIdent $$ }
-    numT                          { TkNum $$ } 
+    varT                          { TkIdent _ $$ }
+    numT                          { TkNum _ $$ } 
 
-    'declare'                     { TkDeclare }
-    'execute'                     { TkExecute }
-    'while'                       { TkWhile }
-    'for'                         { TkFor }
-    'from'                        { TkFrom }
-    'to'                          { TkTo }
-    'do'                          { TkDo }
-    'done'                        { TkDone }
-    'boolean'                     { TkBoolean } 
-    'integer'                     { TkInteger } 
-    'tape'                        { TkTape } 
-    'if'                          { TkIf }
-    'else'                        { TkElse }
-    'then'                        { TkThen }
-    'end'                         { TkEnd }
-    'at'                          { TkAt }
-    'read'                        { TkRead }
-    'write'                       { TkWrite }
-    'true'                        { TkTrue }
-    'false'                       { TkFalse }
-    ','                           { TkComa }
-    '.'                           { TkPunto }
-    ';'                           { TkPuntoYComa }
-    '('                           { TkParAbre }
-    ')'                           { TkParCierra }
-    '['                           { TkCorcheteAbre }
-    ']'                           { TkCorcheteCierra }
-    '{'                           { TkLlaveAbre }
-    '}'                           { TkLlaveCierra }
-    '::'                          { TkType }
-    '+'                           { TkMas }
-    '-'                           { TkMenos }
-    '*'                           { TkMult }
-    '/'                           { TkDiv }
-    '%'                           { TkMod }
-    '\/\\'                        { TkConjuncion }
-    '\/'                          { TkDisyuncion }
-    '~'                           { TkNegacion }
-    '<'                           { TkMenor }
-    '<='                          { TkMenorIgual }
-    '>'                           { TkMayor }
-    '>='                          { TkMayorIgual }
-    '='                           { TkIgual }
-    '/='                          { TkDesigual }
-    '&'                           { TkConcat }
-    '#'                           { TkInspeccion }
-    ':='                          { TkAsignacion }
+    'declare'                     { TkDeclare _ }
+    'execute'                     { TkExecute _ }
+    'while'                       { TkWhile _ }
+    'for'                         { TkFor _ }
+    'from'                        { TkFrom _ }
+    'to'                          { TkTo _ }
+    'do'                          { TkDo _ }
+    'done'                        { TkDone _ }
+    'boolean'                     { TkBoolean _ } 
+    'integer'                     { TkInteger _ } 
+    'tape'                        { TkTape _ } 
+    'if'                          { TkIf _ }
+    'else'                        { TkElse _ }
+    'then'                        { TkThen _ }
+    'end'                         { TkEnd _ }
+    'at'                          { TkAt _ }
+    'read'                        { TkRead _ }
+    'write'                       { TkWrite _ }
+    'true'                        { TkTrue _ }
+    'false'                       { TkFalse _ }
+    ','                           { TkComa _ }
+    '.'                           { TkPunto _ }
+    ';'                           { TkPuntoYComa _ }
+    '('                           { TkParAbre _ }
+    ')'                           { TkParCierra _ }
+    '['                           { TkCorcheteAbre _ }
+    ']'                           { TkCorcheteCierra _ }
+    '{'                           { TkLlaveAbre _ }
+    '}'                           { TkLlaveCierra _ }
+    '::'                          { TkType _ }
+    '+'                           { TkMas _ }
+    '-'                           { TkMenos _ }
+    '*'                           { TkMult _ }
+    '/'                           { TkDiv _ }
+    '%'                           { TkMod _ }
+    '\/\\'                        { TkConjuncion _ }
+    '\/'                          { TkDisyuncion _ }
+    '~'                           { TkNegacion _ }
+    '<'                           { TkMenor _ }
+    '<='                          { TkMenorIgual _ }
+    '>'                           { TkMayor _ }
+    '>='                          { TkMayorIgual _ }
+    '='                           { TkIgual _ }
+    '/='                          { TkDesigual _ }
+    '&'                           { TkConcat _ }
+    '#'                           { TkInspeccion _ }
+    ':='                          { TkAsignacion _ }
 
 %%
 
-exprs :: { [Exp] }
-      : expr                    { [ $1 ] }
-      | expr ';' exprs          { $1 : $3 }
+P :: { [Exp] }
+      : B                     { [ $1 ] }
+      | B ';' P               { $1 : $3 }
 
-expr :: { Exp }
-    : varT ':=' expr                                  { Var $1 $3 }
-    | 'if' B 'then' expr 'end'                        { Cond $2 }
-    | 'if' B 'then' expr 'else' expr 'end'           { Cond2 $2 }
-    | 'while' B 'do' expr 'done'                      { RepIndet $2 $4 }
-    | 'for' B 'from' expr 'to' expr 'do' expr 'done'  { RepDet $2 $4 $6 $8 }
-    | exp1                                            { $1 } 
+B :: { Exp } 
+B : varT ':=' E                                   { E_Var $1 $3 }
+  | 'if' A 'then' B 'end'                         { E_If $2 $4 }
+  | 'if' A 'then' B 'else' B 'end'                { E_IfElse $2 $4 $6 }
+  | 'while' A 'do' B 'done'                       { E_While $2 $4 }
+  | 'for' E 'from' E 'to' E 'do' B 'done'         { E_For $2 $4 $6 $8 }
+  | E                                             { $1 }
 
-B : expr '=' expr                  { BinRel Op_Eq  $1 $3 }
-  | expr '/=' expr                  { BinRel Op_Neq $1 $3 }
-  | expr '>' expr                   { BinRel Op_Gt  $1 $3 }
-  | expr '<' expr                   { BinRel Op_Lt  $1 $3 }
-  | expr '>=' expr                  { BinRel Op_Geq $1 $3 }
-  | expr '<=' expr                  { BinRel Op_Leq $1 $3 }
-  | expr                            { $1 }
+A : E '=' E                                       { E_BinRel Op_Eq  $1 $3 }
+  | E '/=' E                                      { E_BinRel Op_Neq $1 $3 }
+  | E '>' E                                       { E_BinRel Op_Gt  $1 $3 }
+  | E '<' E                                       { E_BinRel Op_Lt  $1 $3 }
+  | E '>=' E                                      { E_BinRel Op_Geq $1 $3 }
+  | E '<=' E                                      { E_BinRel Op_Leq $1 $3 }
 
-exp1 : exp1 '+' Term          { BinArit Suma $1 $3 }
-     | exp1 '-' Term          { BinArit Resta $1 $3 }
-     | Term                   { Term $1 }
+E :: { Exp }
+E : T                      { E_Term $1 }
 
-Term : Term '*' Factor        { Times $1 $3 }
-     | Term '/' Factor        { Div $1 $3 }
-     | Factor                 { Factor $1 }
+T :: { Term } 
+T :F { T_Factor $1 }
 
-Factor : numT                 { $1 }
-       | varT                 { $1 }
-       | 'true'               { $1 }
-       | 'false'              { $1 }
-       | '(' expr ')'         { Brack $2 }
+F :: { Factor }
+F : numT         { Fact $1 }
 
 {
 /*Estructura de datos que representa un programa en brainiac*/
 
-data Exp  = Var String Exp |
-            Exp1 Exp1 |
-            If Cond |
-            IfElse Cond2 |
-            While RepIndet |
-            For RepDet |
+data Exp = E_Var String Exp
+         | E_If Exp Exp 
+         | E_IfElse Exp Exp Exp
+         | E_While Exp Exp 
+         | E_For Exp Exp Exp Exp 
+         | E_BinArit OpBin Term Term
+         | E_BinRel OpComp Exp Exp
+         | E_Term Term
 
-data Exp1 = Plus Exp1 Term |
-            Minus Exp1 Term |
-            Term Term 
+data Term = T_Factor Factor
 
-data Term = Times Term Factor |
-            Div Term Factor |
-            Factor Factor 
+data Factor = Fact Int 
 
-data Factor = Entero Int |
-              Var String |
-              Bool Bool |
-              Brack Exp
+data OpComp = Op_Eq | Op_Neq | Op_Leq | Op_Lt | Op_Geq | Op_Gt 
 
-data Cond = Cond  BinRelacional Expr 
-
-data Cond2 = Cond2 BinRelacional Expr Expr
-
-data RepIndet = RepIndet BinRelacional Instr |
-
-data RepDet = RepDet Exp Exp Exp Exp Exp 
-
-data BinRelacional = BinRel CompOp Exp Exp
-
-data BinAritmetico = BinArit OpBin Exp Exp
-
-data OpComp = O_Eq | O_Neq | O_Leq | O_Lt | O_Geq | O_Gt 
-
-data OpBin = Suma | Resta | Mult | Div | Mod
+data OpBin = Op_Suma | Op_Resta | Op_Mult | Op_Div | Op_Mod
 
 data OpCinta = Concat | Inspec | Ejec
 
 /*Funcion de error*/
 
-happyError :: [Token] -> a
 happyError _ = error ("Parse error\n")
-
-/*Parser*/
-parse = calc . lexer
 }

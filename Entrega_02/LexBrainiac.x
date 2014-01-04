@@ -1,6 +1,6 @@
 {
 {-# LANGUAGE DeriveDataTypeable #-}
-module LexBrainiac (lexer, Token(..)) where
+module LexBrainiac (lexer, lexer2, Token(..)) where
 
 import Data.Data
 import Data.Typeable
@@ -119,7 +119,8 @@ data Token =
     TkDesigual       AlexPosn |
     TkConcat         AlexPosn |
     TkInspeccion     AlexPosn |
-    TkAsignacion     AlexPosn
+    TkAsignacion     AlexPosn |
+    TkEOF            AlexPosn 
     deriving (Eq, Typeable, Data)
 
 instance Data AlexPosn
@@ -144,4 +145,7 @@ lexer str = go ([],[]) (alexStartPos,'\n',str)
                     where (exs', txs') = go (exs, txs) inp'
                 AlexToken inp' len act -> (exs', (act pos (take len str)) : txs') 
                     where (exs', txs') = go (exs, txs) inp'
+
+lexer2 :: String -> [Token]
+lexer2 str = snd $ lexer str
 }

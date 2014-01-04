@@ -119,7 +119,8 @@ data Token =
     TkDesigual       AlexPosn |
     TkConcat         AlexPosn |
     TkInspeccion     AlexPosn |
-    TkAsignacion     AlexPosn
+    TkAsignacion     AlexPosn |
+    TkEOF            AlexPosn
     deriving (Eq, Typeable, Data)
 
 instance Data AlexPosn
@@ -133,7 +134,7 @@ instance Show Token where
 lexError r line col =
     "Error: Caracter inesperado " ++ (show $ head r) ++
     " en la fila " ++ (show line) ++ ", columna " ++ (show col)
-    
+
 lexer str = go ([],[]) (alexStartPos,'\n',str)
     where go (exs, txs) inp@(pos,_,str) =
             case alexScan inp 0 of
