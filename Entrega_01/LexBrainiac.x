@@ -1,6 +1,6 @@
 {
 {-# LANGUAGE DeriveDataTypeable #-}
-module LexBrainiac (lexer, scanner, Token(..)) where
+module LexBrainiac (lexer, scanner, Token(..), AlexPosn(..)) where
 
 import Data.Data
 import Data.Typeable
