@@ -1,0 +1,12 @@
+import Control.Monad.Identity
+import Control.Monad.State
+
+type Location = Int
+type Index = [String]
+type Stack = [Int]
+
+position
+
+fetch
+
+put

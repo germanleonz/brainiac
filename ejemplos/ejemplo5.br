@@ -9,4 +9,4 @@ declare x, y :: integer execute
         done
     done
     $- El maximo comun divisor ahora esta en 'x' y en 'y'. -$
-end
+done

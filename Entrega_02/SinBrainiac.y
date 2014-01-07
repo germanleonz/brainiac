@@ -1,16 +1,17 @@
 {
-module SinBrainiac (parse) where
-import LexBrainiac 
+module SinBrainiac where
+
+import LexBrainiac (lexer, Token(..))
 }
 
-%name parse
+%name calc
 %tokentype { Token }
-%lexer     { lexer2 } { TkEOF }
+%error     { parseError }
 
 %token 
 
-    varT                          { TkIdent _ $$ }
-    numT                          { TkNum _ $$ } 
+    ident                         { TkIdent _ $$ }
+    num                           { TkNum _ $$ } 
 
     'declare'                     { TkDeclare _ }
     'execute'                     { TkExecute _ }
@@ -26,7 +27,6 @@ import LexBrainiac
     'if'                          { TkIf _ }
     'else'                        { TkElse _ }
     'then'                        { TkThen _ }
-    'end'                         { TkEnd _ }
     'at'                          { TkAt _ }
     'read'                        { TkRead _ }
     'write'                       { TkWrite _ }
@@ -62,57 +62,132 @@ import LexBrainiac
 
 %%
 
-P :: { [Exp] }
-      : B                     { [ $1 ] }
-      | B ';' P               { $1 : $3 }
+Prog :: { Programa }
+     : 'declare' ListDeclare 'execute' Insts 'done'   { $4 }
 
-B :: { Exp } 
-B : varT ':=' E                                   { E_Var $1 $3 }
-  | 'if' A 'then' B 'end'                         { E_If $2 $4 }
-  | 'if' A 'then' B 'else' B 'end'                { E_IfElse $2 $4 $6 }
-  | 'while' A 'do' B 'done'                       { E_While $2 $4 }
-  | 'for' E 'from' E 'to' E 'do' B 'done'         { E_For $2 $4 $6 $8 }
-  | E                                             { $1 }
+ListDeclare :: { [Declaracion] }
+            : VarDecla                                { [$1] }
+            | VarDecla ';' ListDeclare                { $1 : $3 }
 
-A : E '=' E                                       { E_BinRel Op_Eq  $1 $3 }
-  | E '/=' E                                      { E_BinRel Op_Neq $1 $3 }
-  | E '>' E                                       { E_BinRel Op_Gt  $1 $3 }
-  | E '<' E                                       { E_BinRel Op_Lt  $1 $3 }
-  | E '>=' E                                      { E_BinRel Op_Geq $1 $3 }
-  | E '<=' E                                      { E_BinRel Op_Leq $1 $3 }
+VarDecla :: { Declaracion }
+         : VarList '::' Tipo                          { Decl $3 $1 }
+
+VarList :: { [VarName] }
+        : ident                                       { [$1] }
+        | ident ',' VarList                           { $1 : $3 }
+
+Tipo :: { Tipo }
+Tipo : 'boolean'                                      { Tipo_Boolean }
+     | 'integer'                                      { Tipo_Integer }
+     | 'tape'                                         { Tipo_Tape }
+
+Insts :: { [Inst] }
+Insts : I                                             { [$1] }                         
+      | I ';' Insts                                   { $1 : $3 }
+
+I :: { Inst }
+I : ident ':=' E                                      { I_Assign $1 $3 }
+  | 'if' B 'then' I 'done'                            { I_If $2 $4 }
+  | 'if' B 'then' I 'else' I 'done'                   { I_IfElse $2 $4 $6 }
+  | 'while' B 'do' I 'done'                           { I_While $2 $4 }
+  | 'for' ident 'from' E 'to' E 'do' I 'done'         { I_For $2 $4 $6 $8 }
+  | 'from' E 'to' E 'do' I 'done'                     { I_From $2 $4 $6 }
+  | 'declare' ListDeclare 'execute' Insts 'done'      { I_Declare $4 }
+  | 'write' ident                                     { I_Write $2 }
+  | 'read' E                                          { I_Read $2 }
+
+B :: { Exp }
+  : E '=' E                                           { E_Igual $1 $3 }
+  | E '/=' E                                          { E_NoIgual $1 $3 }
+  | E '>' E                                           { E_Mayor $1 $3 }
+  | E '>=' E                                          { E_MayorI $1 $3 }
+  | E '<' E                                           { E_Menor $1 $3 }
+  | E '<=' E                                          { E_MenorI $1 $3 }
 
 E :: { Exp }
-E : T                      { E_Term $1 }
+  : E '+' T                                           { E_Suma  $1 $3 }
+  | E '-' T                                           { E_Resta $1 $3 }
+  | T                                                 { $1 }
 
-T :: { Term } 
-T :F { T_Factor $1 }
+T :: { Exp }
+  : T '*' F                                           { E_Mult $1 $3 }
+  | T '/' F                                           { E_Div  $1 $3 }
+  | T '%' F                                           { E_Mod  $1 $3 }
+  | F                                                 { $1 }
 
-F :: { Factor }
-F : numT         { Fact $1 }
+F :: { Exp }
+  : ident                                             { E_Var $1 } 
+  | num                                               { E_Const $1 }
 
 {
-/*Estructura de datos que representa un programa en brainiac*/
 
-data Exp = E_Var String Exp
-         | E_If Exp Exp 
-         | E_IfElse Exp Exp Exp
-         | E_While Exp Exp 
-         | E_For Exp Exp Exp Exp 
-         | E_BinArit OpBin Term Term
-         | E_BinRel OpComp Exp Exp
-         | E_Term Term
+--
+-- Estructura de datos que representa un programa en Brainiac
+--
 
-data Term = T_Factor Factor
+type Programa = [Inst]
 
-data Factor = Fact Int 
+type VarName = String
 
-data OpComp = Op_Eq | Op_Neq | Op_Leq | Op_Lt | Op_Geq | Op_Gt 
+type Valor = Int
 
-data OpBin = Op_Suma | Op_Resta | Op_Mult | Op_Div | Op_Mod
+data Tipo = Tipo_Boolean | Tipo_Integer | Tipo_Tape
 
-data OpCinta = Concat | Inspec | Ejec
+data Declaracion = Decl Tipo [VarName]
 
-/*Funcion de error*/
+data Inst = I_Assign VarName Exp
+          | I_If Exp Inst 
+          | I_IfElse Exp Inst Inst
+          | I_While Exp Inst
+          | I_For VarName Exp Exp Inst
+          | I_From Exp Exp Inst
+          | I_Declare Programa
+          | I_Write VarName
+          | I_Read Exp
+          deriving (Show)
 
-happyError _ = error ("Parse error\n")
+data Exp = E_Const Valor 
+         | E_Var VarName 
+         | E_Igual Exp Exp 
+         | E_NoIgual Exp Exp 
+         | E_Mayor  Exp Exp
+         | E_MayorI Exp Exp
+         | E_Menor Exp Exp
+         | E_MenorI Exp Exp
+         | E_Suma  Exp Exp
+         | E_Resta Exp Exp
+         | E_Mult  Exp Exp
+         | E_Div Exp Exp
+         | E_Mod Exp Exp
+         deriving (Show)
+
+data OpComp = Op_Eq
+            | Op_Neq
+            | Op_Leq 
+            | Op_Lt 
+            | Op_Geq 
+            | Op_Gt
+            deriving (Show)
+
+data OpBinSum  = Op_Suma 
+               | Op_Resta
+               deriving (Show)
+
+data OpBinMult = Op_Mult 
+               | Op_Div 
+               | Op_Mod
+               deriving (Show)
+
+data OpCinta = Op_Concat
+             | Op_Inspec 
+             | Op_Ejec 
+             deriving (Show)
+
+-- Funcion de error
+
+parseError :: [Token] -> a
+parseError t = error ("Parse error \n" ++ (show t))
+
+runCalc :: String -> Programa
+runCalc = calc . lexer
 }

@@ -1,13 +1,12 @@
 {
 {-# LANGUAGE DeriveDataTypeable #-}
-module LexBrainiac (lexer, Token(..)) where
+module LexBrainiac (lexer, scanner, Token(..)) where
 
 import Data.Data
 import Data.Typeable
 }
 
 %wrapper "posn"
-
 $digit = 0-9
 $alpha = [a-zA-Z]
 
@@ -30,8 +29,7 @@ tokens :-
     if                            { tok (\p s -> TkIf p)}
     else                          { tok (\p s -> TkElse p)}
     then                          { tok (\p s -> TkThen p)}
-    end                           { tok (\p s -> TkEnd p)}
-    at                           { tok (\p s -> TkAt p)}
+    at                            { tok (\p s -> TkAt p)}
     read                          { tok (\p s -> TkRead p)}
     write                         { tok (\p s -> TkWrite p)}
     true                          { tok (\p s -> TkTrue p)}
@@ -85,7 +83,6 @@ data Token =
     TkIf             AlexPosn |
     TkElse           AlexPosn |
     TkThen           AlexPosn |
-    TkEnd            AlexPosn |
     TkAt             AlexPosn |
     TkRead           AlexPosn |
     TkWrite          AlexPosn |
@@ -119,8 +116,7 @@ data Token =
     TkDesigual       AlexPosn |
     TkConcat         AlexPosn |
     TkInspeccion     AlexPosn |
-    TkAsignacion     AlexPosn |
-    TkEOF            AlexPosn
+    TkAsignacion     AlexPosn 
     deriving (Eq, Typeable, Data)
 
 instance Data AlexPosn
@@ -135,7 +131,11 @@ lexError r line col =
     "Error: Caracter inesperado " ++ (show $ head r) ++
     " en la fila " ++ (show line) ++ ", columna " ++ (show col)
 
-lexer str = go ([],[]) (alexStartPos,'\n',str)
+lexer :: String -> [Token]
+lexer str = (snd ( scanner str))
+
+scanner :: String -> ([String], [Token])
+scanner str = go ([],[]) (alexStartPos,'\n',str)
     where go (exs, txs) inp@(pos,_,str) =
             case alexScan inp 0 of
                 AlexEOF -> (exs, txs)
