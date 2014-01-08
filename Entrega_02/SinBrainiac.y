@@ -65,7 +65,7 @@ import LexBrainiac
 %%
 
 Prog :: { Programa }
-     : 'declare' ListDeclare 'execute' Insts 'done'   { $4 }
+     : 'declare' ListDeclare 'execute' IS 'done'   { $4 }
 
 ListDeclare :: { [Declaracion] }
             : VarDecla                                { [$1] }
@@ -88,6 +88,7 @@ Add_op :: { OpBin }
         | '-'                                { Op_Res }
         | '/\\'                              { Op_Con }
         | '\\/'                              { Op_Dis }
+        | '\\/'                              { Op_Dis }
                                                 
 Comp_op :: { OpComp }                          
         : '='                                { Op_Eq }
@@ -105,21 +106,24 @@ Mult_op :: { OpBin }
 Prefix_op :: { OpUn }                          
           : '-'                              { Op_NegArit }
           | '~'                              { Op_NegBool }
+          | '#'                              { Op_Inspecc }
    
-Insts :: { [Inst] }
-Insts : I                                             { [$1] }                         
-      | I ';' Insts                                   { $1 : $3 }
+IS :: { [Inst] }
+      : I                                             { [$1] }                         
+      | I ';' IS                                      { $1 : $3 }
 
 I :: { Inst }
-I : ident ':=' E                                      { I_Assign $1 $3 }
-  | 'if' B 'then' I 'done'                            { I_If $2 $4 }
-  | 'if' B 'then' I 'else' I 'done'                   { I_IfElse $2 $4 $6 }
-  | 'while' B 'do' I 'done'                           { I_While $2 $4 }
-  | 'for' ident 'from' E 'to' E 'do' I 'done'         { I_For $2 $4 $6 $8 }
-  | 'from' E 'to' E 'do' I 'done'                     { I_From $2 $4 $6 }
-  | 'declare' ListDeclare 'execute' Insts 'done'      { I_Declare $4 }
+  : ident ':=' E                                      { I_Assign $1 $3 }
+  | 'if' B 'then' IS 'done'                           { I_If $2 $4 }
+  | 'if' B 'then' IS 'else' IS 'done'                 { I_IfElse $2 $4 $6 }
+  | 'while' B 'do' IS 'done'                          { I_While $2 $4 }
+  | 'for' ident 'from' E 'to' E 'do' IS 'done'        { I_For $2 $4 $6 $8 }
+  | 'from' E 'to' E 'do' IS 'done'                    { I_From $2 $4 $6 }
+  | 'declare' ListDeclare 'execute' IS 'done'         { I_Declare $4 }
   | 'write' ident                                     { I_Write $2 }
   | 'read' E                                          { I_Read $2 }
+  | '{' cadena '}' 'at' E                             { I_Ejec $2 $5 }
+  | E '&' E                                           { I_Concat $1 $3 }
 
 B :: { BoolExp }
   : E Comp_op E                                       { B_Comp $2 $1 $3 }
@@ -141,6 +145,20 @@ F :: { Exp }
   | num                                               { E_Const $1 }
   | 'true'                                            { E_True }
   | 'false'                                           { E_False }
+  | '[' E ']'                                         { E_Corch $2 }   
+  | '(' E ')'                                         { E_Paren $2 }     
+
+cadena :: { [B_Inst] }
+       : B_Inst                                       { [$1] }
+       | B_Inst cadena                                { $1 : $2 }
+
+B_Inst :: { B_Inst }
+       : '+'                    { C_Sum }
+       | '-'                    { C_Res }
+       | '<'                    { C_Izq }
+       | '>'                    { C_Der }
+       | '.'                    { C_Imp }
+       | ','                    { C_Lee }
 
 {
 
@@ -178,24 +196,22 @@ data OpComp = Op_Eq
 
 data OpUn = Op_NegArit
           | Op_NegBool
+          | Op_Inspecc
           deriving (Show)
-
-data OpCinta = Op_Concat
-             | Op_Inspec 
-             | Op_Ejec 
-             deriving (Show)
 
 data Declaracion = Decl Tipo [VarName]
 
 data Inst = I_Assign VarName Exp
-          | I_If BoolExp Inst 
-          | I_IfElse BoolExp Inst Inst
-          | I_While BoolExp Inst
-          | I_For VarName Exp Exp Inst
-          | I_From Exp Exp Inst
+          | I_If BoolExp Programa 
+          | I_IfElse BoolExp Programa Programa
+          | I_While BoolExp Programa
+          | I_For VarName Exp Exp Programa
+          | I_From Exp Exp Programa
           | I_Declare Programa
           | I_Write VarName
           | I_Read Exp
+          | I_Ejec [B_Inst] Exp
+          | I_Concat Exp Exp
           deriving (Show)
 
 data Exp = E_Const Valor 
@@ -204,10 +220,20 @@ data Exp = E_Const Valor
          | E_False 
          | E_BinOp OpBin Exp Exp
          | E_UnOp OpUn Exp
+         | E_Paren Exp
+         | E_Corch Exp
          deriving (Show)
 
 data BoolExp = B_Comp OpComp Exp Exp
              deriving (Show)
+
+data B_Inst = C_Sum
+            | C_Res
+            | C_Izq
+            | C_Der
+            | C_Imp
+            | C_Lee
+            deriving (Show)
 
 --
 -- Funcion de error
