@@ -1,4 +1,4 @@
 import SinBrainiac
 
 main :: IO ()
-main = interact (show . runCalc)
+main = interact (show . parse)
