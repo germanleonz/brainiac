@@ -1,3 +1,9 @@
 declare x :: integer execute
-    x := 3 + 4
+    x := 3 + 4;
+    declare y :: integer execute
+        y := 5
+    done;
+    declare z :: integer execute
+        z := 6
+    done
 done

@@ -164,8 +164,6 @@ B_Inst :: { B_Inst }
 -- Tipos de datos que representan un programa en Brainiac
 --
 
-type Programa = Inst
-
 type VarName = String
 type Valor = Int
 
@@ -241,7 +239,7 @@ parseError tks = error $ "Error sintactico, Tokens: " ++ (show tks)
 --
 -- Funcion que tokeniza un string, parsea la lista de tokens y devuelve un AST
 --
-parse :: String -> Programa
+parse :: String -> Inst
 parse = calc . lexer
 
 --
