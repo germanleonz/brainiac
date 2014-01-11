@@ -132,7 +132,7 @@ lexError r line col =
     " en la fila " ++ (show line) ++ ", columna " ++ (show col)
 
 lexer :: String -> [Token]
-lexer str = (snd ( scanner str))
+lexer = snd . scanner 
 
 scanner :: String -> ([String], [Token])
 scanner str = go ([],[]) (alexStartPos,'\n',str)

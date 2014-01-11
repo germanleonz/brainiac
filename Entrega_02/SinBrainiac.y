@@ -65,8 +65,8 @@ import LexBrainiac
 
 %%
 
-AST :: { AST }
-     : 'declare' Ds 'execute' Is 'done'   { Block $2 $4 }
+AST :: { Inst }
+     : 'declare' Ds 'execute' Is 'done'   { I_Declare $2 $4 }
 
 Ds :: { [Declaracion] }
             : V_Decl                      { $1 }
@@ -164,12 +164,10 @@ B_Inst :: { B_Inst }
 -- Tipos de datos que representan un programa en Brainiac
 --
 
-type AST = Block
+type Programa = Inst
 
 type VarName = String
 type Valor = Int
-
-data Block = Block [Declaracion] [Inst] deriving (Show)
 
 data Declaracion = Decl VarName Tipo deriving (Show)
 
@@ -243,10 +241,11 @@ parseError tks = error $ "Error sintactico, Tokens: " ++ (show tks)
 --
 -- Funcion que tokeniza un string, parsea la lista de tokens y devuelve un AST
 --
-parse :: String -> AST
+parse :: String -> Programa
 parse = calc . lexer
 
 --
 -- Funcion para imprimir un AST
 --
+/*printAST*/
 }
