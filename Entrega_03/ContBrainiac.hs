@@ -146,7 +146,7 @@ evaluateI :: Inst -> Evaluator ()
 evaluateI (I_Declare ds is) = do
     procesarDeclaraciones ds
     mapM_ evaluateI is
-
+    {-removerDeclaraciones-}
 
 evaluateI (I_Assign id exp) = do
     vn <- evaluate exp
