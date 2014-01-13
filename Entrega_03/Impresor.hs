@@ -1,0 +1,1 @@
+../Entrega_02/Impresor.hs

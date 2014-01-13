@@ -1,6 +1,6 @@
 {
 {-# LANGUAGE DeriveDataTypeable #-}
-module LexBrainiac (lexer, scanner, Token(..), AlexPosn(..)) where
+module LexBrainiac (lexer, Token(..), AlexPosn(..)) where
 
 import Data.Data
 import Data.Typeable
@@ -119,8 +119,8 @@ data Token =
     TkAsignacion     AlexPosn 
     deriving (Eq, Typeable, Data)
 
-instance Data AlexPosn
-instance Typeable AlexPosn
+instance Data AlexPosn 
+instance Typeable AlexPosn 
 
 instance Show Token where
     show (TkIdent p id) = "TkIdent(\"" ++ id ++ "\")"
@@ -131,11 +131,8 @@ lexError r line col =
     "Error: Caracter inesperado " ++ (show $ head r) ++
     " en la fila " ++ (show line) ++ ", columna " ++ (show col)
 
-lexer :: String -> [Token]
-lexer = snd . scanner 
-
-scanner :: String -> ([String], [Token])
-scanner str = go ([],[]) (alexStartPos,'\n',str)
+lexer :: String -> ([String], [Token])
+lexer str = go ([],[]) (alexStartPos,'\n',str)
     where go (exs, txs) inp@(pos,_,str) =
             case alexScan inp 0 of
                 AlexEOF -> (exs, txs)

@@ -2,11 +2,10 @@
  -  Entrega 03 - Analisis de contexto
  -}
 module ContBrainiac (
-    Evaluator,
-    runEvaluator,
-    evaluate,
-    evaluateI,
-    parse
+    Analizador,
+    runAnalizador,
+    evaluateE,
+    evaluateI
 )
 where
 
@@ -15,12 +14,12 @@ import SinBrainiac
 import qualified Data.Map as DM
 import Data.Sequence as DS
  
-import Control.Monad.Identity
 import Control.Monad.Error
 import Control.Monad.State
 
 --
---  Tabla de simbolos
+--  Tabla de simbolos basada en tabla de hash con Strings como claves y Data.Sequence 
+--  de SymInfo como valores
 --
 
 data SymTable = SymTable (DM.Map VarName (Seq SymInfo))
@@ -30,8 +29,6 @@ data SymInfo = SymInfo Tipo Scope Valor
     deriving (Show)
 
 type Scope = Int
-
-{-data Valor = Maybe Int-}
 
 {-| 
   Creacion de una tabla de simbolos vacia    
@@ -50,6 +47,18 @@ insertar vn info (SymTable m)  =  SymTable $ DM.alter f vn m
     where f Nothing  = Just (DS.singleton info)
           f (Just x) = Just (info <| x)
 
+{-|
+    Eliminar una variable del scope especificado
+-}
+eliminarVariable :: VarName 
+                 -> Scope
+                 -> SymTable
+                 -> SymTable
+eliminarVariable v sc m = undefined 
+
+{-|
+    Buscar la informacion relacionada con una variable en la tabla de simbolos
+-}
 buscarSymInfo :: VarName
               -> SymTable 
               -> Maybe SymInfo 
@@ -60,6 +69,9 @@ buscarSymInfo str (SymTable m) =
             EmptyL     -> Nothing
             info :< xs -> Just info
 
+{-|
+    Actualizar el valor de una variable 
+ -}
 actualizar :: VarName 
            -> Valor
            -> Scope
@@ -72,29 +84,36 @@ actualizar id vn sc (SymTable m) = SymTable $ DM.alter f id m
               case viewl is of 
                   (SymInfo t l vv) :< iss -> Just $ (SymInfo t l vn) <| iss
 
+--
+--  Funciones para manipular la tabla de simbolos dentro del Analizador
+--
 agregarSimbolo :: VarName
                -> SymInfo
-               -> Evaluator ()
+               -> Analizador ()
 agregarSimbolo str info = do
     modify (\s -> s { tabla = insertar str info (tabla s)})
 
 buscarValor :: VarName
-            -> Evaluator Int
+            -> Analizador Int
 buscarValor var = do
     state <- get
     case buscarSymInfo var (tabla state) of
         Just (SymInfo _ _ val) -> return val
-        Nothing                -> throwError $ VariableNoExiste var
+        Nothing                -> throwError $ VariableNoDeclarada var
 
 cambiarValor :: VarName
              -> Valor
-             -> Evaluator ()
+             -> Analizador ()
 cambiarValor id vn = do
     buscarValor id
     modify $ (\s -> s { tabla = actualizar id vn (currentScope s) (tabla s) })
 
+eliminarVariableM :: VarName 
+                  -> Analizador ()
+eliminarVariableM v = undefined
+
 procesarDeclaracion :: Declaracion
-                    -> Evaluator ()
+                    -> Analizador ()
 procesarDeclaracion (Decl v t) = do
     st <- get
     case buscarSymInfo v (tabla st) of 
@@ -104,7 +123,7 @@ procesarDeclaracion (Decl v t) = do
                                   else agregarSimbolo v (SymInfo t (currentScope st) (-1))
 
 procesarDeclaraciones :: [Declaracion]
-                      -> Evaluator () 
+                      -> Analizador () 
 procesarDeclaraciones ds = do
     modify (\s -> s { currentScope = (currentScope s) + 1 })
     mapM_ procesarDeclaracion ds
@@ -113,8 +132,13 @@ procesarDeclaraciones ds = do
 --  Errores de contexto
 --
 data ContextError = MultiplesDeclaraciones VarName
-                  | VariableNoExiste VarName
-                  deriving (Show)
+                  | VariableNoDeclarada VarName
+                  | VariableNoInicializada VarName
+
+instance Show ContextError where
+    show (MultiplesDeclaraciones v) = "Multiples declaraciones de la variable " ++ v
+    show (VariableNoDeclarada v)    = "La variable " ++ v ++ " no ha sido declarada"
+    show (VariableNoInicializada v) = "La variable " ++ v ++ " no ha sido inicializada"
 
 instance Error ContextError
 
@@ -122,13 +146,11 @@ instance Error ContextError
 --  Definicion del evaluador (en un principio analizador de errores de contexto)
 --
 
-type Evaluator a = StateT EvalState
-                     (ErrorT ContextError Identity) a
+type Analizador a = ErrorT ContextError (StateT EvalState IO) a
 
-runEvaluator :: Evaluator a 
-             -> (Either ContextError (a, EvalState))
-runEvaluator = runIdentity . runErrorT .
-                    (flip runStateT initialState)
+{-runAnalizador :: Analizador a -}
+             {--> (Either ContextError (a, EvalState))-}
+runAnalizador eval = runErrorT (runStateT eval initialState)
 
 data EvalState = EvalState {
     currentScope :: Scope,
@@ -141,40 +163,60 @@ initialState = EvalState {
     tabla        = tablaVacia
 }
 
-evaluateI :: Inst -> Evaluator () 
+evaluateI :: Inst -> Analizador () 
 
 evaluateI (I_Declare ds is) = do
     procesarDeclaraciones ds
     mapM_ evaluateI is
     {-removerDeclaraciones-}
-
 evaluateI (I_Assign id exp) = do
-    vn <- evaluate exp
+    vn <- evaluateE exp
     cambiarValor id vn
-
-{-evaluate (I_If cond exito) = do-}
+{-evaluateI (I_If cond exito) = do-}
     {-eval_cond <- evaluate cond-}
     {-if (true == eval_cond) then eval exito-}
-
-{-evaluate (I_IfElse cond exito fallo) = do-}
+{-evaluateI (I_IfElse cond exito fallo) = do-}
     {-eval_cond <- eval cond-}
     {-if (eval_cond == true) then eval exito-}
                            {-else eval fallo-}
+evaluateI (I_While b is)      = undefined
+evaluateI (I_For id e1 e2 is) = undefined
+evaluateI (I_From e1 e2 is)   = undefined
+evaluateI (I_Write e)         = undefined
+evaluateI (I_Read id )        = undefined
 
-evaluate :: Exp -> Evaluator Int
+evaluateE :: Exp -> Analizador Int
 
-evaluate (E_Const n) = return n
-
-evaluate (E_Var v) = buscarValor v 
-
-evaluate (E_UnOp op exp) = do
-    x <- evaluate exp
+evaluateE (E_Const n) = return n
+evaluateE (E_Var v)   = buscarValor v
+evaluateE (E_UnOp op exp) = do
+    x <- evaluateE exp
     case op of
-        Op_NegArit -> return (-x)
-
-evaluate (E_BinOp op left right) = do
-    lft <- evaluate left
-    rgt <- evaluate right
+        Op_NegArit -> return $ -x
+        {-Op_NegBool -> return $ not x-}
+        {-Op_Inspecc -> return ??? -}
+evaluateE (E_BinOp op left right) = do
+    lft <- evaluateE left
+    rgt <- evaluateE right
     case op of 
         Op_Sum -> return $ lft + rgt
         Op_Res -> return $ lft - rgt
+        Op_Mul -> return $ lft * rgt
+        {-Op_Div -> return $ lft / rgt-}
+
+{-evaluateB :: BoolExp -> Evaluator Bool-}
+
+{-evaluateB (B_Bin op left right) = undefined-}
+    {-lft <- evaluate left-}
+    {-rgt <- evaluate right-}
+    {-case op of -}
+        {-Op_Gt  -> return $ lft > rgt-}
+        {-Op_Geq -> return $ lft >= rgt-}
+        {-Op_Lt  -> return $ lft > rgt-}
+        {-Op_Leq -> return $ lft >= rgt-}
+        {-Op_Eq  -> return $ lft == rgt-}
+        {-Op_Neq -> return $ lft /= rgt-}
+{-evaluateB (B_True)    = return True-}
+{-evaluateB (B_False)   = return False-}
+
+{-evaluateC :: Cinta -> Evaluator Cinta-}
