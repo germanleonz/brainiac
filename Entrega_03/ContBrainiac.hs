@@ -203,9 +203,16 @@ analizar (I_Declare ds is) = do
 analizar (I_Assign id exp) = do
     t  <- buscarTipo id
     te <- getType exp
-    if t == te 
-        then return ()
-        else throwError $ TipoIncorrecto exp t
+    case t of 
+        Tipo_Tape -> do
+            case exp of
+                (E_Var _)    -> chequearTipoDeExpresion exp Tipo_Tape
+                (E_Corch ec) -> chequearTipoDeExpresion ec Tipo_Integer
+                otherwise    -> throwError $ TipoIncorrecto exp Tipo_Tape
+            return ()
+        otherwise -> if t == te 
+                         then return ()
+                         else throwError $ TipoIncorrecto exp t
 analizar (I_If cond exito) = do
     chequearTipoDeExpresion cond Tipo_Boolean
     mapM_ analizar exito
@@ -229,21 +236,19 @@ analizar (I_Write e)         = return ()
 analizar (I_Read id )        = do
     buscarTipo id 
     return ()
-
-chequearTipoDeExpresiones :: Exp -> Exp -> Tipo -> Analizador Tipo
-chequearTipoDeExpresiones e1 e2 t = do
-    t1 <- getType e1
-    t2 <- getType e2
-    if (t1 == t) && (t2 == t)
-        then return t
-        else throwError $ TiposNoCoinciden e1 e2 t
-
-chequearTipoDeExpresion :: Exp -> Tipo -> Analizador Tipo
-chequearTipoDeExpresion e t = do
-    t1 <- getType e
-    if t1 == t
-        then return t
-        else throwError $ TipoIncorrecto e t
+analizar (I_Ejec cadena e) = do
+    chequearTipoDeExpresion e Tipo_Tape
+    return ()
+analizar (I_Concat e1 e2) = do
+    case e1 of
+        (E_Var _)    -> chequearTipoDeExpresion e1 Tipo_Tape
+        (E_Corch ec) -> chequearTipoDeExpresion e1 Tipo_Integer
+        otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Tape
+    case e2 of
+        (E_Var _)    -> chequearTipoDeExpresion e2 Tipo_Tape
+        (E_Corch ec) -> chequearTipoDeExpresion ec Tipo_Integer
+        otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Tape
+    return ()
 
 getType :: Exp -> Analizador Tipo
 getType (E_Const _)          = return Tipo_Integer
@@ -271,7 +276,24 @@ getType (E_UnOp op e)    = do
     case op of
         Op_NegArit -> chequearTipoDeExpresion e Tipo_Integer
         Op_NegBool -> chequearTipoDeExpresion e Tipo_Boolean
-        Op_Inspecc -> chequearTipoDeExpresion e Tipo_Tape
+        Op_Inspecc -> do 
+            chequearTipoDeExpresion e Tipo_Tape
+            return Tipo_Integer
 getType (E_Paren e)     = getType e
-getType (E_Corch e)     = undefined
+getType (E_Corch e)     = getType e
+
+chequearTipoDeExpresiones :: Exp -> Exp -> Tipo -> Analizador Tipo
+chequearTipoDeExpresiones e1 e2 t = do
+    t1 <- getType e1
+    t2 <- getType e2
+    if (t1 == t) && (t2 == t)
+        then return t
+        else throwError $ TiposNoCoinciden e1 e2 t
+
+chequearTipoDeExpresion :: Exp -> Tipo -> Analizador Tipo
+chequearTipoDeExpresion e t = do
+    t1 <- getType e
+    if t1 == t
+        then return t
+        else throwError $ TipoIncorrecto e t
 

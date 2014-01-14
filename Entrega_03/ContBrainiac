@@ -10,12 +10,15 @@ my $lexer         = 'LexBrainiac.hs';
 my $y             = 'SinBrainiac.y';
 my $parser        = 'SinBrainiac.hs';
 
-my $context       = 'ContBrainiac.hs';
-my $context_test  = 'ContBrainiacTest.hs';
+my $context           = 'ContBrainiac.hs';
+my $context_test      = 'ContBrainiacTest.hs';
+my $context_test_exec = 'ContBrainiacTest';
 
 my $brainiac_file = $ARGV[0];
 
-system("alex -g $x");
-system("happy -a -g -c $y");
-system("ghc -w -fglasgow-exts -o ContBrainiacTest --make $context $context_test");
+system("alex -g $x") unless (-e $lexer);
+system("happy -a -g -c $y") unless (-e $parser);
+unless (-e $context_test_exec) {
+    system("ghc -w -fglasgow-exts -o ContBrainiacTest --make $context $context_test");
+}
 system("./ContBrainiacTest < $brainiac_file");

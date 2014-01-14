@@ -208,7 +208,14 @@ data B_Inst = C_Sum
             | C_Der
             | C_Imp
             | C_Lee
-            deriving (Show)
+
+instance Show B_Inst where
+    show (C_Sum) = "+"
+    show (C_Res) = "-"
+    show (C_Izq) = "<"
+    show (C_Der) = ">"
+    show (C_Imp) = "."
+    show (C_Lee) = ","
 
 data OpBin = Op_Sum 
            | Op_Res
@@ -413,7 +420,11 @@ imprimirExpresion tag e = do
     bajarTabs
 
 imprimirCadena :: [B_Inst] -> Impresor ()
-imprimirCadena c = mapM_ (imprimirNoTerminal . show) c
+imprimirCadena c = do
+    imprimirNoTerminal "- cadena"
+    subirTabs
+    imprimirNoTerminal $ "{" ++ (concatMap show c) ++ "}" 
+    bajarTabs
 
 imprimirInstrucciones :: String -> [Inst] -> Impresor ()
 imprimirInstrucciones tag is = do
