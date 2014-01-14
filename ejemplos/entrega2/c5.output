@@ -1,0 +1,20 @@
+ITERACION_DET
+	- variable: x
+   	- cotaInf: 1
+	- cotaSup: VARIABLE
+		- nombre: magic 
+   	- instruccion: 
+		ASIGNACION
+			- var: foo
+			- val: BIN_ARITMETICO
+				- operacion: 'Multiplicacion'
+				- operador izquierdo: BIN_ARITMETICO
+					- operacion: 'Suma'
+					- operador izquierdo: MENOS_UNARIO
+						- operador: 35
+					- operador derecho: true
+				- operador derecho: BIN_BOOLEANO
+					- operacion: 'And'
+					- operador izquierdo: 84
+					- operador derecho: NOT
+						- operador: false

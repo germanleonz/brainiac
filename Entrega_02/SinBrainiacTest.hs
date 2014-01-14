@@ -1,6 +1,6 @@
 import SinBrainiac
 import LexBrainiac
-import Impresor
+{-import Impresor-}
 
 main = do
     s <- getContents
@@ -14,5 +14,6 @@ main = do
             --  Se intenta armar el AST
             --  si hay errores sintacticos se muestra el primero que se encuentre
             let ast = calc tokens
-            correrImpresor $ impresor ast -- Si no hay errores se muestra el AST
-            return ()
+            print $ ast
+            {-correrImpresor $ impresor ast -- Si no hay errores se muestra el AST-}
+            {-return ()-}

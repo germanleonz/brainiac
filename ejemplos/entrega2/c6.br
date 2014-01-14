@@ -1,0 +1,12 @@
+execute
+	while (x /= ((y + true) * 42)) do
+		if x > y then
+			x := true;
+			y := z + 42;
+			x := ~sopa
+		else
+			y := y - x;
+		done
+	done
+done
+

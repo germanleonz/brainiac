@@ -1,0 +1,8 @@
+execute
+	bar := 3 ;
+	while bar > 2 do
+		foo := 35 + bar;
+		bar := true;
+		sopa := magia
+	done
+done

@@ -1,0 +1,13 @@
+$- Ese es un comentario -$
+$$ while foo Error que no deberia leer
+
+execute 
+$$ No he declarado ni una variable, pero no importa.
+	for x from 1 to magic do
+		foo := (-35 + true) * (84  /\ ~false)
+	done
+done
+
+ $- Y este es otro. -$
+
+$$ Chaooo =)

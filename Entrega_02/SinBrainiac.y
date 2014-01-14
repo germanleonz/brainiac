@@ -2,7 +2,13 @@
 module SinBrainiac where
 
 import LexBrainiac 
+
+import qualified Data.Sequence as DS
+import qualified Data.Foldable as DF
+
+import Control.Monad.Identity
 import Control.Monad.State
+import Control.Monad.Writer
 }
 
 %name calc
@@ -128,6 +134,7 @@ I :: { Inst }
 
 B :: { Exp }
   : E Comp_op E                                       { E_Comp $2 $1 $3 }
+  | E                                                 { $1 }
 
 E :: { Exp }
   : E Add_op T                                        { E_BinOp $2 $1 $3 }
@@ -181,6 +188,8 @@ data Inst = I_Assign VarName Exp
           | I_Ejec [B_Inst] Exp
           | I_Concat Exp Exp
 
+instance Show Inst where show = correrImpresor . impresor 
+
 data Exp = E_Const Valor 
          | E_Var VarName 
          | E_True 
@@ -190,7 +199,8 @@ data Exp = E_Const Valor
          | E_UnOp OpUn Exp 
          | E_Paren Exp 
          | E_Corch Exp
-        deriving (Show)
+
+instance Show Exp where show = correrImpresor . impresorE
 
 data B_Inst = C_Sum
             | C_Res
@@ -222,7 +232,12 @@ data OpUn = Op_NegArit
 data Tipo = Tipo_Boolean
           | Tipo_Integer 
           | Tipo_Tape
-          deriving (Eq, Show)
+          deriving (Eq)
+
+instance Show Tipo where
+    show (Tipo_Integer) = "tipo entero"
+    show (Tipo_Boolean) = "tipo boolean"
+    show (Tipo_Tape)    = "tipo cinta"
 
 instance Show OpBin where
     show Op_Sum = "'Suma'"
@@ -251,4 +266,159 @@ instance Show OpUn where
 --
 parseError :: [Token] -> a
 parseError tks = error $ "Error sintactico, Simbolo inesperado " ++ show (head tks)
+
+--
+-- Impresion del AST (arbol sintactico abstracto)
+--
+data PrintState = PrintState {
+    tabs :: Int
+} deriving (Show)
+
+initialPState :: PrintState
+initialPState = PrintState {
+    tabs = 0
+}
+
+type AST_String = DS.Seq String
+
+correrImpresor :: Impresor () -> String
+correrImpresor = (DF.foldl (++) "") . snd . runIdentity . runWriterT . (flip runStateT initialPState)
+
+type Impresor a = StateT PrintState (WriterT AST_String Identity) a
+
+impresor :: Inst -> Impresor ()
+impresor (I_Assign id e) = do
+    imprimirNoTerminal "ASIGNACION" 
+    subirTabs
+    imprimirNoTerminal $ "- variable: " ++ id
+    imprimirExpresion "- val: " e
+    bajarTabs
+impresor (I_If b exito) = do
+    imprimirNoTerminal "CONDICIONAL" 
+    subirTabs
+    imprimirExpresion "- guardia:" b
+    imprimirInstrucciones "- exito: " exito
+    bajarTabs
+impresor (I_IfElse b exito fallo) = do
+    imprimirNoTerminal "CONDICIONAL_IF_ELSE"
+    subirTabs
+    imprimirExpresion "- guardia: " b
+    imprimirInstrucciones "- exito: " exito
+    imprimirInstrucciones "- fallo: " fallo
+    bajarTabs
+impresor (I_While b c) = do
+    imprimirNoTerminal "ITERACION_INDETERMINADA" 
+    subirTabs
+    imprimirExpresion "- guardia:" b
+    imprimirInstrucciones "- cuerpo:" c
+    bajarTabs
+impresor (I_For id e1 e2 c) = do
+    imprimirNoTerminal "ITERACION_DETERMINADA - FOR" 
+    subirTabs
+    imprimirNoTerminal $ "- variable: " ++ id
+    imprimirExpresion "- e1: " e1
+    imprimirExpresion "- e2: " e2
+    imprimirInstrucciones "- cuerpo: " c
+    bajarTabs
+impresor (I_From e1 e2 c) = do
+    imprimirNoTerminal "ITERACION_DETERMINADA - FROM"
+    subirTabs
+    imprimirExpresion "- lim_inferior:" e1 
+    imprimirExpresion "- lim_superior:" e2 
+    imprimirInstrucciones "- cuerpo: " c
+    bajarTabs
+impresor (I_Declare _ is) = imprimirInstrucciones "SECUENCIACION" is
+impresor (I_Write e) = do
+    imprimirNoTerminal "IMPRIMIR"
+    subirTabs
+    imprimirExpresion "- expr: " e
+    bajarTabs
+impresor (I_Read id) = do
+    imprimirNoTerminal "LEER"
+    subirTabs
+    imprimirNoTerminal $ "- variable: " ++ id
+    bajarTabs
+impresor (I_Ejec cadena e) = do
+    imprimirNoTerminal "EJECUCION"
+    subirTabs
+    imprimirCadena cadena
+    imprimirExpresion "- cinta: " e
+    bajarTabs
+impresor (I_Concat e1 e2) = do
+    imprimirNoTerminal "CONCATENACION"
+    subirTabs
+    imprimirExpresion "- 1era cadena: " e1
+    imprimirExpresion "- 2da cadena: "  e2
+    bajarTabs
+
+--
+--  Impresion de expresiones
+--
+
+/*type ExpToString = */
+
+impresorE :: Exp -> Impresor ()
+
+impresorE (E_Const c)        = imprimirNoTerminal $ show c
+impresorE (E_Var v)          = imprimirNoTerminal v
+impresorE (E_True)           = imprimirNoTerminal "'True'"
+impresorE (E_False)          = imprimirNoTerminal "'False'"
+impresorE (E_BinOp op e1 e2) = do
+    imprimirNoTerminal "BIN_ARITMETICO"
+    subirTabs
+    imprimirNoTerminal $ "- operacion: " ++ (show op)
+    imprimirExpresion "- operador izquierdo: " e1
+    imprimirExpresion "- operador derecho: " e2
+    bajarTabs
+impresorE (E_Comp op e1 e2)  = do
+    imprimirNoTerminal "BIN_RELACIONAL"
+    subirTabs
+    imprimirNoTerminal $ "- operacion: " ++ (show op)
+    imprimirExpresion "- operador izquierdo: " e1
+    imprimirExpresion "- operador derecho: " e2
+    bajarTabs
+impresorE (E_UnOp op e) = do
+    imprimirExpresion (show op) e
+impresorE (E_Paren e)   = do
+    imprimirNoTerminal "PARENTESIS" 
+    subirTabs
+    imprimirExpresion "- expr: " e
+    bajarTabs
+impresorE (E_Corch e)   = do
+    imprimirNoTerminal "CORCHETES" 
+    subirTabs
+    imprimirExpresion "- expr: " e
+    bajarTabs
+
+--
+--  Funciones auxiliares para la impresion
+--
+
+subirTabs :: Impresor ()
+subirTabs = modify (\s -> s { tabs = (tabs s) + 1 })
+
+bajarTabs :: Impresor ()
+bajarTabs = modify (\s -> s { tabs = (tabs s) - 1 })
+
+imprimirNoTerminal :: String -> Impresor ()
+imprimirNoTerminal str = do
+    t <- gets tabs
+    tell $ DS.singleton $ replicate t '\t' ++ str ++ "\n"
+
+imprimirExpresion :: String -> Exp -> Impresor () 
+imprimirExpresion tag e = do
+    imprimirNoTerminal tag
+    subirTabs
+    impresorE e 
+    bajarTabs
+
+imprimirCadena :: [B_Inst] -> Impresor ()
+imprimirCadena c = mapM_ (imprimirNoTerminal . show) c
+
+imprimirInstrucciones :: String -> [Inst] -> Impresor ()
+imprimirInstrucciones tag is = do
+    imprimirNoTerminal tag
+    subirTabs
+    mapM_ impresor is
+    bajarTabs
 }
