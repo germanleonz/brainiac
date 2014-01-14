@@ -79,8 +79,7 @@ buscarSymInfo str (SymTable m) =
 agregarSimbolo :: VarName
                -> SymInfo
                -> Analizador ()
-agregarSimbolo id info = do
-    modify (\s -> s { tabla = insertar id info (tabla s)})
+agregarSimbolo id info = modify (\s -> s { tabla = insertar id info (tabla s)})
 
 {-|
     Buscamos el tipo de datos de la variable id en el scope mas cercano.
@@ -99,8 +98,7 @@ buscarTipo id = do
 -}
 eliminarDeclaracion :: Declaracion 
                     -> Analizador ()
-eliminarDeclaracion (Decl v t) = do
-    modify (\s -> s { tabla = eliminarVariable v (tabla s)})
+eliminarDeclaracion (Decl v t) = modify (\s -> s { tabla = eliminarVariable v (tabla s)})
 
 {-|
     Agregamos la variable v de tipo tn a la tabla de simbolos 
@@ -123,14 +121,7 @@ procesarDeclaraciones :: [Declaracion]
                       -> Analizador () 
 procesarDeclaraciones ds = do
     modify (\s -> s { currentScope = (currentScope s) + 1 })
-
-    {-c_actual <- gets currentScope-}
-    {-liftIO $ putStrLn $ "Agregando declaraciones del scope " ++ (show c_actual)-}
-
     mapM_ procesarDeclaracion ds
-
-    {-tt <- gets tabla-}
-    {-liftIO $ putStrLn $ "Listo. Tabla de simbolos \n" ++ (show tt)-}
             
 {-|
     Eliminamos de la tabla de simbolos las variables declaradas en ds
@@ -139,14 +130,8 @@ procesarDeclaraciones ds = do
 eliminarDeclaraciones :: [Declaracion]
                       -> Analizador ()
 eliminarDeclaraciones ds = do
-    {-c_actual <- gets currentScope-}
-    {-liftIO $ putStrLn $ "Antes de eliminar declaraciones el scope " ++ (show c_actual)-}
-
     mapM_ eliminarDeclaracion ds
     modify (\s -> s { currentScope = (currentScope s) - 1 })
-
-    {-tt <- gets tabla-}
-    {-liftIO $ putStrLn $ "Listo. Tabla de simbolos \n" ++ (show tt)-}
 
 --
 --  Definicion del Monad analizador de errores de contexto
@@ -198,40 +183,44 @@ analizar :: Inst -> Analizador ()
 
 analizar (I_Declare ds is) = do
     procesarDeclaraciones ds
-    mapM_ analizar is
+    analizarInstrucciones is
     eliminarDeclaraciones ds
 analizar (I_Assign id exp) = do
-    t  <- buscarTipo id
-    te <- getType exp
-    case t of 
+    t_var <- buscarTipo id
+    case t_var of 
+        --  Si id es una variable cinta entonces el lado
+        --  derecho debe ser una expresion de la forma [ E ] 
+        --  donde E es de tipo entero u otra variable tipo cinta
         Tipo_Tape -> do
             case exp of
                 (E_Var _)    -> chequearTipoDeExpresion exp Tipo_Tape
                 (E_Corch ec) -> chequearTipoDeExpresion ec Tipo_Integer
                 otherwise    -> throwError $ TipoIncorrecto exp Tipo_Tape
             return ()
-        otherwise -> if t == te 
-                         then return ()
-                         else throwError $ TipoIncorrecto exp t
+        --  En caso contrario se verifica que ambos lados de la asignacion
+        --  sean del mismo tipo 
+        otherwise -> do
+            chequearTipoDeExpresion exp t_var
+            return ()
 analizar (I_If cond exito) = do
     chequearTipoDeExpresion cond Tipo_Boolean
-    mapM_ analizar exito
+    analizarInstrucciones exito
 analizar (I_IfElse cond exito fallo) = do
     chequearTipoDeExpresion cond Tipo_Boolean
-    mapM_ analizar exito
-    mapM_ analizar fallo
+    analizarInstrucciones exito
+    analizarInstrucciones fallo
 analizar (I_While guardia is)      = do
     chequearTipoDeExpresion guardia Tipo_Boolean
-    mapM_ analizar is 
+    analizarInstrucciones is 
 analizar (I_For id e1 e2 is) = do
     t  <- buscarTipo id
     chequearTipoDeExpresion e1 Tipo_Integer
     chequearTipoDeExpresion e2 Tipo_Integer
-    mapM_ analizar is
+    analizarInstrucciones is
 analizar (I_From e1 e2 is)   = do
     chequearTipoDeExpresion e1 Tipo_Integer
     chequearTipoDeExpresion e2 Tipo_Integer
-    mapM_ analizar is
+    analizarInstrucciones is
 analizar (I_Write e)         = return ()
 analizar (I_Read id )        = do
     buscarTipo id 
@@ -251,6 +240,7 @@ analizar (I_Concat e1 e2) = do
     return ()
 
 getType :: Exp -> Analizador Tipo
+
 getType (E_Const _)          = return Tipo_Integer
 getType (E_Var id)           = buscarTipo id 
 getType (E_True)             = return Tipo_Boolean
@@ -282,7 +272,14 @@ getType (E_UnOp op e)    = do
 getType (E_Paren e)     = getType e
 getType (E_Corch e)     = getType e
 
-chequearTipoDeExpresiones :: Exp -> Exp -> Tipo -> Analizador Tipo
+analizarInstrucciones :: [Inst]
+                      -> Analizador ()
+analizarInstrucciones = mapM_ analizar
+
+chequearTipoDeExpresiones :: Exp 
+                          -> Exp
+                          -> Tipo
+                          -> Analizador Tipo
 chequearTipoDeExpresiones e1 e2 t = do
     t1 <- getType e1
     t2 <- getType e2
@@ -290,7 +287,9 @@ chequearTipoDeExpresiones e1 e2 t = do
         then return t
         else throwError $ TiposNoCoinciden e1 e2 t
 
-chequearTipoDeExpresion :: Exp -> Tipo -> Analizador Tipo
+chequearTipoDeExpresion :: Exp
+                        -> Tipo
+                        -> Analizador Tipo
 chequearTipoDeExpresion e t = do
     t1 <- getType e
     if t1 == t
