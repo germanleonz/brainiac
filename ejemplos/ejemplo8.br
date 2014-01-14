@@ -1,7 +1,7 @@
-declare x :: integer execute
+declare x :: integer; y :: boolean execute
     x := 3 + 4;
     declare y :: integer execute
         y := x
     done;
-    y := 5
+    y := true
 done

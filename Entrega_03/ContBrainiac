@@ -16,6 +16,6 @@ my $context_test  = 'ContBrainiacTest.hs';
 my $brainiac_file = $ARGV[0];
 
 system("alex -g $x");
-system("happy -g $y");
-system("ghc -w -o ContBrainiacTest --make $context $context_test");
+system("happy -a -g -c $y");
+system("ghc -w -fglasgow-exts -o ContBrainiacTest --make $context $context_test");
 system("./ContBrainiacTest < $brainiac_file");

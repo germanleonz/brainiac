@@ -4,7 +4,7 @@ module Impresor (
     impresor
 ) where
 
-import SinBrainiac
+import SinBrainiac (Inst(..), Exp(..), B_Inst(..))
 import Control.Monad.State
 
 --
@@ -34,20 +34,20 @@ impresor (I_Assign id e) = do
 impresor (I_If b exito) = do
     imprimirNoTerminal "CONDICIONAL" 
     subirTabs
-    imprimirBooleano "- guardia:" b
+    imprimirExpresion "- guardia:" b
     imprimirInstrucciones "- exito: " exito
     bajarTabs
 impresor (I_IfElse b exito fallo) = do
     imprimirNoTerminal "CONDICIONAL_IF_ELSE"
     subirTabs
-    imprimirBooleano "- guardia: " b
+    imprimirExpresion "- guardia: " b
     imprimirInstrucciones "- exito: " exito
     imprimirInstrucciones "- fallo: " fallo
     bajarTabs
 impresor (I_While b c) = do
     imprimirNoTerminal "ITERACION_INDETERMINADA" 
     subirTabs
-    imprimirBooleano "- guardia:" b
+    imprimirExpresion "- guardia:" b
     imprimirInstrucciones "- cuerpo:" c
     bajarTabs
 impresor (I_For id e1 e2 c) = do
@@ -106,6 +106,13 @@ impresorE (E_BinOp op e1 e2) = do
     imprimirExpresion "- operador izquierdo: " e1
     imprimirExpresion "- operador derecho: " e2
     bajarTabs
+impresorE (E_Comp op e1 e2)  = do
+    imprimirNoTerminal "BIN_RELACIONAL"
+    subirTabs
+    imprimirNoTerminal $ "- operacion: " ++ (show op)
+    imprimirExpresion "- operador izquierdo: " e1
+    imprimirExpresion "- operador derecho: " e2
+    bajarTabs
 impresorE (E_UnOp op e) = do
     imprimirExpresion (show op) e
 impresorE (E_Paren e)   = do
@@ -117,17 +124,6 @@ impresorE (E_Corch e)   = do
     imprimirNoTerminal "CORCHETES" 
     subirTabs
     imprimirExpresion "- expr: " e
-    bajarTabs
-
-impresorB :: BoolExp -> Impresor ()
-impresorB (B_True)           = imprimirNoTerminal "'True'"
-impresorB (B_False)          = imprimirNoTerminal "'False'"
-impresorB (B_Comp op e1 e2)  = do
-    imprimirNoTerminal "BIN_RELACIONAL"
-    subirTabs
-    imprimirNoTerminal $ "- operacion: " ++ (show op)
-    imprimirExpresion "- operador izquierdo: " e1
-    imprimirExpresion "- operador derecho: " e2
     bajarTabs
 
 --
@@ -161,10 +157,3 @@ imprimirInstrucciones tag is = do
     subirTabs
     mapM_ impresor is
     bajarTabs
-
-imprimirBooleano :: String -> BoolExp -> Impresor ()
-imprimirBooleano tag b = do
-    imprimirNoTerminal tag
-    subirTabs
-    impresorB b 
-    bajarTabs 

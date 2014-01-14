@@ -126,15 +126,15 @@ I :: { Inst }
   | '{' cadena '}' 'at' E                             { I_Ejec $2 $5 }
   | E '&' E                                           { I_Concat $1 $3 }
 
-B :: { BoolExp }
-  : E Comp_op E                                       { B_Comp $2 $1 $3 }
+B :: { Exp }
+  : E Comp_op E                                       { E_Comp $2 $1 $3 }
 
 E :: { Exp }
   : E Add_op T                                        { E_BinOp $2 $1 $3 }
   | T                                                 { $1 }
 
 T :: { Exp }
-  : T Mult_op F                                       { E_BinOp $2 $1 $3 }
+  : T Mult_op F                                       { E_BinOp $2 $1 $3}
   | F                                                 { $1 }
 
 F :: { Exp }
@@ -170,9 +170,9 @@ type Valor = Int
 data Declaracion = Decl VarName Tipo deriving (Show)
 
 data Inst = I_Assign VarName Exp
-          | I_If BoolExp [Inst] 
-          | I_IfElse BoolExp [Inst] [Inst]
-          | I_While BoolExp [Inst]
+          | I_If Exp [Inst] 
+          | I_IfElse Exp [Inst] [Inst]
+          | I_While Exp [Inst]
           | I_For VarName Exp Exp [Inst]
           | I_From Exp Exp [Inst]
           | I_Declare [Declaracion] [Inst]
@@ -180,23 +180,17 @@ data Inst = I_Assign VarName Exp
           | I_Read VarName
           | I_Ejec [B_Inst] Exp
           | I_Concat Exp Exp
-          deriving (Show)
 
 data Exp = E_Const Valor 
          | E_Var VarName 
-         | E_True
+         | E_True 
          | E_False 
-         | E_BinOp OpBin Exp Exp
-         | E_UnOp OpUn Exp
-         | E_Paren Exp
+         | E_BinOp OpBin Exp Exp 
+         | E_Comp OpComp Exp Exp 
+         | E_UnOp OpUn Exp 
+         | E_Paren Exp 
          | E_Corch Exp
         deriving (Show)
-
-data BoolExp = B_Comp OpComp Exp Exp
-             /*| B_Bin OpBinBool Exp Exp*/
-             | B_True
-             | B_False
-             deriving (Show)
 
 data B_Inst = C_Sum
             | C_Res
@@ -214,9 +208,6 @@ data OpBin = Op_Sum
            | Op_Con
            | Op_Dis
 
-/*data OpBinBool = Op_Dis*/
-               /*| Op_Con*/
-
 data OpComp = Op_Eq
             | Op_Neq
             | Op_Lt 
@@ -231,7 +222,7 @@ data OpUn = Op_NegArit
 data Tipo = Tipo_Boolean
           | Tipo_Integer 
           | Tipo_Tape
-          deriving (Show)
+          deriving (Eq, Show)
 
 instance Show OpBin where
     show Op_Sum = "'Suma'"
@@ -242,10 +233,6 @@ instance Show OpBin where
     show Op_Dis = "'Disyuncion'"
     show Op_Con = "'Conjuncion'"
 
-/*instance Show OpBinBool where*/
-    /*show Op_Dis = "'Disyuncion'"*/
-    /*show Op_Con = "'Conjuncion'"*/
-
 instance Show OpComp where
     show Op_Eq  = "'Igual'"
     show Op_Neq = "'No Igual'"
@@ -255,13 +242,13 @@ instance Show OpComp where
     show Op_Geq = "'Mayor o igual'"
 
 instance Show OpUn where
-    show Op_NegArit = "Negacion Aritmetica"
-    show Op_NegBool = "Negacion Booleana"
-    show Op_Inspecc = "Inspeccion"
+    show Op_NegArit = "'Negacion Aritmetica'"
+    show Op_NegBool = "'Negacion Booleana'"
+    show Op_Inspecc = "'Inspeccion'"
 
 --
 -- Funcion de error
 --
 parseError :: [Token] -> a
-parseError tks = error $ "Error sintactico, Simbolo inesperado  " ++ show (head tks)
+parseError tks = error $ "Error sintactico, Simbolo inesperado " ++ show (head tks)
 }

@@ -4,8 +4,8 @@
 module ContBrainiac (
     Analizador,
     runAnalizador,
-    evaluateE,
-    evaluateI
+    analizarI,
+    getType
 )
 where
 
@@ -14,6 +14,7 @@ import SinBrainiac
 import qualified Data.Map as DM
 import Data.Sequence as DS
  
+import Control.Monad.Identity
 import Control.Monad.Error
 import Control.Monad.State
 
@@ -31,18 +32,18 @@ data SymInfo = SymInfo Tipo Scope Valor
 type Scope = Int
 
 {-| 
-  Creacion de una tabla de simbolos vacia    
+  Crear una tabla de simbolos vacia    
 -}
 tablaVacia :: SymTable 
 tablaVacia = SymTable (DM.empty)
 
 {-|
-  Agregar una nueva variable a la tabla de simbolos.
+  Agregar una nueva variable a la tabla de simbolos
 -}
-insertar :: VarName                     -- ^ Simbolo que se va a agregar
-         -> SymInfo                     -- ^ Tipo Valor y scope donde esta el simbolo
-         -> SymTable                    -- ^ La tabla de simbolos donde se va a agregar el simbolo
-         -> SymTable                    -- ^ La tabla de simbolos con el elemento incluido
+insertar :: VarName    -- ^ Simbolo que se va a agregar
+         -> SymInfo    -- ^ Tipo Valor y scope donde esta el simbolo
+         -> SymTable   -- ^ La tabla de simbolos donde se va a agregar el simbolo
+         -> SymTable   -- ^ La tabla de simbolos con el elemento incluido
 insertar vn info (SymTable m)  =  SymTable $ DM.alter f vn m
     where f Nothing  = Just (DS.singleton info)
           f (Just x) = Just (info <| x)
@@ -51,10 +52,11 @@ insertar vn info (SymTable m)  =  SymTable $ DM.alter f vn m
     Eliminar una variable del scope especificado
 -}
 eliminarVariable :: VarName 
-                 -> Scope
                  -> SymTable
                  -> SymTable
-eliminarVariable v sc m = undefined 
+eliminarVariable v (SymTable m) = SymTable $ DM.alter f v m
+    where f Nothing  = Just DS.empty
+          f (Just s) = Just $ DS.drop 1 s
 
 {-|
     Buscar la informacion relacionada con una variable en la tabla de simbolos
@@ -69,21 +71,6 @@ buscarSymInfo str (SymTable m) =
             EmptyL     -> Nothing
             info :< xs -> Just info
 
-{-|
-    Actualizar el valor de una variable 
- -}
-actualizar :: VarName 
-           -> Valor
-           -> Scope
-           -> SymTable
-           -> SymTable 
-actualizar id vn sc (SymTable m) = SymTable $ DM.alter f id m
-    where f Nothing =
-              Just $ DS.singleton $ SymInfo Tipo_Integer sc vn
-          f (Just is) =
-              case viewl is of 
-                  (SymInfo t l vv) :< iss -> Just $ (SymInfo t l vn) <| iss
-
 --
 --  Funciones para manipular la tabla de simbolos dentro del Analizador
 --
@@ -93,34 +80,28 @@ agregarSimbolo :: VarName
 agregarSimbolo str info = do
     modify (\s -> s { tabla = insertar str info (tabla s)})
 
-buscarValor :: VarName
-            -> Analizador Int
-buscarValor var = do
-    state <- get
-    case buscarSymInfo var (tabla state) of
-        Just (SymInfo _ _ val) -> return val
-        Nothing                -> throwError $ VariableNoDeclarada var
+buscarTipo :: VarName
+           -> Analizador Tipo
+buscarTipo id = do
+    tabla <- gets tabla
+    case buscarSymInfo id tabla of
+        Just (SymInfo t _ _) -> return t
+        Nothing              -> throwError $ VariableNoDeclarada id
 
-cambiarValor :: VarName
-             -> Valor
-             -> Analizador ()
-cambiarValor id vn = do
-    buscarValor id
-    modify $ (\s -> s { tabla = actualizar id vn (currentScope s) (tabla s) })
-
-eliminarVariableM :: VarName 
-                  -> Analizador ()
-eliminarVariableM v = undefined
+eliminarDeclaracion :: Declaracion 
+                    -> Analizador ()
+eliminarDeclaracion (Decl v t) = do
+    modify (\s -> s { tabla = eliminarVariable v (tabla s)})
 
 procesarDeclaracion :: Declaracion
                     -> Analizador ()
-procesarDeclaracion (Decl v t) = do
-    st <- get
+procesarDeclaracion (Decl v tn) = do
+    st <- get 
     case buscarSymInfo v (tabla st) of 
-        Nothing              -> agregarSimbolo v (SymInfo t (currentScope st) (-1))
-        Just (SymInfo t l val) -> if l == (currentScope st)
+        Nothing                -> agregarSimbolo v (SymInfo tn (currentScope st) (-1))
+        Just (SymInfo t l val) -> if (l == (currentScope st)) && (tn == t)
                                   then throwError $ MultiplesDeclaraciones v 
-                                  else agregarSimbolo v (SymInfo t (currentScope st) (-1))
+                                  else agregarSimbolo v (SymInfo tn (currentScope st) (-1))
 
 procesarDeclaraciones :: [Declaracion]
                       -> Analizador () 
@@ -128,29 +109,42 @@ procesarDeclaraciones ds = do
     modify (\s -> s { currentScope = (currentScope s) + 1 })
     mapM_ procesarDeclaracion ds
 
+eliminarDeclaraciones :: [Declaracion]
+                      -> Analizador ()
+eliminarDeclaraciones ds = do
+    mapM_ eliminarDeclaracion ds
+
 --
 --  Errores de contexto
 --
 data ContextError = MultiplesDeclaraciones VarName
                   | VariableNoDeclarada VarName
                   | VariableNoInicializada VarName
+                  | TiposNoCoinciden Exp Exp Tipo
+                  | TipoIncorrecto Exp Tipo
 
 instance Show ContextError where
     show (MultiplesDeclaraciones v) = "Multiples declaraciones de la variable " ++ v
     show (VariableNoDeclarada v)    = "La variable " ++ v ++ " no ha sido declarada"
     show (VariableNoInicializada v) = "La variable " ++ v ++ " no ha sido inicializada"
+    show (TiposNoCoinciden e1 e2 t) = "Los tipos de :\n" ++
+        (show e1) ++ "\n" ++
+        (show e2) ++ "\n" ++
+        "Son incorrectos.\nAmbas expresiones deben ser del tipo: " ++ (show t)
+    show (TipoIncorrecto e1 t) = "La expresion :\n" ++
+        (show e1) ++ "\n" ++
+        "Debe ser del tipo: " ++ (show t) 
 
 instance Error ContextError
 
 --
---  Definicion del evaluador (en un principio analizador de errores de contexto)
+--  Definicion del analizador de errores de contexto
 --
 
-type Analizador a = ErrorT ContextError (StateT EvalState IO) a
+type Analizador a = StateT EvalState (ErrorT ContextError Identity) a
 
-{-runAnalizador :: Analizador a -}
-             {--> (Either ContextError (a, EvalState))-}
-runAnalizador eval = runErrorT (runStateT eval initialState)
+runAnalizador :: Analizador a -> Either ContextError (a, EvalState)
+runAnalizador = runIdentity . runErrorT . (flip runStateT initialState)
 
 data EvalState = EvalState {
     currentScope :: Scope,
@@ -163,60 +157,77 @@ initialState = EvalState {
     tabla        = tablaVacia
 }
 
-evaluateI :: Inst -> Analizador () 
+analizarI :: Inst -> Analizador () 
 
-evaluateI (I_Declare ds is) = do
+analizarI (I_Declare ds is) = do
     procesarDeclaraciones ds
-    mapM_ evaluateI is
-    {-removerDeclaraciones-}
-evaluateI (I_Assign id exp) = do
-    vn <- evaluateE exp
-    cambiarValor id vn
-{-evaluateI (I_If cond exito) = do-}
-    {-eval_cond <- evaluate cond-}
-    {-if (true == eval_cond) then eval exito-}
-{-evaluateI (I_IfElse cond exito fallo) = do-}
-    {-eval_cond <- eval cond-}
-    {-if (eval_cond == true) then eval exito-}
-                           {-else eval fallo-}
-evaluateI (I_While b is)      = undefined
-evaluateI (I_For id e1 e2 is) = undefined
-evaluateI (I_From e1 e2 is)   = undefined
-evaluateI (I_Write e)         = undefined
-evaluateI (I_Read id )        = undefined
+    mapM_ analizarI is
+    eliminarDeclaraciones ds
+analizarI (I_Assign id exp) = do
+    t  <- buscarTipo id
+    te <- getType exp
+    if t == te 
+        then return ()
+        else throwError $ TipoIncorrecto exp t
+analizarI (I_If cond exito) = do
+    chequearTipoDeExpresion cond Tipo_Boolean
+    mapM_ analizarI exito
+analizarI (I_IfElse cond exito fallo) = do
+    chequearTipoDeExpresion cond Tipo_Boolean
+    mapM_ analizarI exito
+    mapM_ analizarI fallo
+analizarI (I_While guardia is)      = do
+    chequearTipoDeExpresion guardia Tipo_Boolean
+    mapM_ analizarI is 
+analizarI (I_For id e1 e2 is) = undefined
+analizarI (I_From e1 e2 is)   = undefined
+analizarI (I_Write e)         = return ()
+analizarI (I_Read id )        = do
+    buscarTipo id 
+    return ()
 
-evaluateE :: Exp -> Analizador Int
+chequearTipoDeExpresiones :: Exp -> Exp -> Tipo -> Analizador Tipo
+chequearTipoDeExpresiones e1 e2 t = do
+    t1 <- getType e1
+    t2 <- getType e2
+    if t1 == t && t1 == t
+        then return t
+        else throwError $ TiposNoCoinciden e1 e2 t
 
-evaluateE (E_Const n) = return n
-evaluateE (E_Var v)   = buscarValor v
-evaluateE (E_UnOp op exp) = do
-    x <- evaluateE exp
-    case op of
-        Op_NegArit -> return $ -x
-        {-Op_NegBool -> return $ not x-}
-        {-Op_Inspecc -> return ??? -}
-evaluateE (E_BinOp op left right) = do
-    lft <- evaluateE left
-    rgt <- evaluateE right
+chequearTipoDeExpresion :: Exp -> Tipo -> Analizador Tipo
+chequearTipoDeExpresion e t = do
+    t1 <- getType e
+    if t1 == t
+        then return t
+        else throwError $ TipoIncorrecto e t
+
+getType :: Exp -> Analizador Tipo
+getType (E_Const _)          = return Tipo_Integer
+getType (E_Var id)           = buscarTipo id 
+getType (E_True)             = return Tipo_Boolean
+getType (E_False)            = return Tipo_Boolean
+getType (E_BinOp op e1 e2) = do
     case op of 
-        Op_Sum -> return $ lft + rgt
-        Op_Res -> return $ lft - rgt
-        Op_Mul -> return $ lft * rgt
-        {-Op_Div -> return $ lft / rgt-}
+        Op_Sum -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Res -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Mul -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Div -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Con -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean
+        Op_Dis -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean
+getType (E_Comp op e1 e2)  = do
+    case op of 
+        Op_Eq  -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Neq -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Gt  -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Geq -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Lt  -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Leq -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+    return Tipo_Boolean
+getType (E_UnOp op e)    = do
+    case op of
+        Op_NegArit -> chequearTipoDeExpresion e Tipo_Integer
+        Op_NegBool -> chequearTipoDeExpresion e Tipo_Boolean
+        Op_Inspecc -> chequearTipoDeExpresion e Tipo_Tape
+getType (E_Paren e)     = getType e
+getType (E_Corch e)     = undefined
 
-{-evaluateB :: BoolExp -> Evaluator Bool-}
-
-{-evaluateB (B_Bin op left right) = undefined-}
-    {-lft <- evaluate left-}
-    {-rgt <- evaluate right-}
-    {-case op of -}
-        {-Op_Gt  -> return $ lft > rgt-}
-        {-Op_Geq -> return $ lft >= rgt-}
-        {-Op_Lt  -> return $ lft > rgt-}
-        {-Op_Leq -> return $ lft >= rgt-}
-        {-Op_Eq  -> return $ lft == rgt-}
-        {-Op_Neq -> return $ lft /= rgt-}
-{-evaluateB (B_True)    = return True-}
-{-evaluateB (B_False)   = return False-}
-
-{-evaluateC :: Cinta -> Evaluator Cinta-}

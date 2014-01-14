@@ -12,6 +12,8 @@ main = do
             mapM_ print errores
         else do
             let ast = calc tokens
-            {-runAnalizador $ evaluateI ast-}
-            correrImpresor $ impresor ast
-            return ()
+            case runAnalizador $ analizarI ast of
+                Left err  -> putStrLn $ show err
+                Right _ -> do
+                    correrImpresor $ impresor ast
+                    return ()
