@@ -11,11 +11,9 @@ my $y             = 'SinBrainiac.y';
 my $parser        = 'SinBrainiac.hs';
 my $parser_test   = 'SinBrainiacTest.hs';
 
-my $impresor      = 'Impresor.hs';
-
 my $brainiac_file = $ARGV[0];
 
 system("alex -g $x");
 system("happy -a -g -c $y");
-system("ghc -w -fglasgow-exts -o SinBrainiacTest --make $impresor $parser $parser_test");
+system("ghc -w -fglasgow-exts -o SinBrainiacTest --make $parser $parser_test");
 system("./SinBrainiacTest < $brainiac_file");
