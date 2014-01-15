@@ -1,0 +1,7 @@
+declare x :: integer; y :: boolean execute
+    x := 0 + 1;
+    for x from 1 to 5 do
+        x := 3
+    done;
+    y := true
+done

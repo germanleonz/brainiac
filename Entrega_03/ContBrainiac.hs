@@ -1,5 +1,8 @@
 {-
- -  Entrega 03 - Analisis de contexto
+   Entrega 03 - Analisis de contexto
+
+   Hecho por: German Leon Z. Carnet: 08-10611
+   
  -}
 module ContBrainiac (
     Analizador,
@@ -25,7 +28,7 @@ import Control.Monad.State
 data SymTable = SymTable (DM.Map VarName (Seq SymInfo))
     deriving (Show)
 
-data SymInfo = SymInfo Tipo Scope Valor
+data SymInfo = SymInfo Tipo Scope Valor Bool
     deriving (Show)
 
 type Scope = Int
@@ -70,6 +73,25 @@ buscarSymInfo str (SymTable m) =
             EmptyL     -> Nothing
             info :< xs -> Just info
 
+{-|
+    La variable id se bloquea por ser variable de iteracion
+-}
+{-bloquearVariable :: VarName -}
+                 {--> SymTable-}
+                 {--> SymTable -}
+{-bloquearVariable id (SymTable m) = do-}
+    {-case buscarSymInfo id tabla of-}
+        {-Just (SymInfo t _ _ _) -> Just (SymInfo t _ -}
+        {-Nothing                -> Nothing-}
+
+{-|
+    La variable id se libera por dejar de ser variable de iteracion
+-}
+{-liberarVariable :: VarName-}
+                {--> SymTable-}
+                {--> SymTable-}
+{-liberarVariable id (SymTable m) = undefined-}
+
 --
 --  Funciones para manipular la tabla de simbolos dentro del Analizador
 --
@@ -90,15 +112,41 @@ buscarTipo :: VarName
 buscarTipo id = do
     tabla <- gets tabla
     case buscarSymInfo id tabla of
-        Just (SymInfo t _ _) -> return t
-        Nothing              -> throwError $ VariableNoDeclarada id
+        Just (SymInfo t _ _ _) -> return t
+        Nothing                -> throwError $ VariableNoDeclarada id
+
+{-|
+    Marcamos a la variable id como bloqueada en la tabla de simbolos
+-}
+marcarVariableOcupada :: VarName 
+                      -> Analizador ()
+marcarVariableOcupada id = do
+    tabs <- gets tabla
+    case buscarSymInfo id tabs of
+        Just (SymInfo t l val b) -> do
+            eliminarDeclaracion (Decl id t) 
+            agregarSimbolo id (SymInfo t l val True)
+        otherwise -> return ()
+
+{-|
+    Marcamos a la variable id como bloqueada en la tabla de simbolos
+-}
+marcarVariableLibre :: VarName 
+                    -> Analizador ()
+marcarVariableLibre id = do
+    tabs <- gets tabla
+    case buscarSymInfo id tabs of
+        Just (SymInfo t l val b) -> do
+            eliminarDeclaracion (Decl id t) 
+            agregarSimbolo id (SymInfo t l val False)
+        otherwise -> return ()
 
 {-|
     Eliminamos la declaracion d de la tabla de simbolos
 -}
 eliminarDeclaracion :: Declaracion 
                     -> Analizador ()
-eliminarDeclaracion (Decl v t) = modify (\s -> s { tabla = eliminarVariable v (tabla s)})
+eliminarDeclaracion (Decl v _) = modify (\s -> s { tabla = eliminarVariable v (tabla s)})
 
 {-|
     Agregamos la variable v de tipo tn a la tabla de simbolos 
@@ -108,10 +156,10 @@ procesarDeclaracion :: Declaracion
 procesarDeclaracion (Decl v tn) = do
     st <- get 
     case buscarSymInfo v (tabla st) of 
-        Nothing                -> agregarSimbolo v (SymInfo tn (currentScope st) (-1))
-        Just (SymInfo t l val) -> if l == (currentScope st)
+        Nothing                  -> agregarSimbolo v (SymInfo tn (currentScope st) (-1) False)
+        Just (SymInfo t l val b) -> if l == (currentScope st)
                                     then throwError $ MultiplesDeclaraciones v 
-                                    else agregarSimbolo v (SymInfo tn (currentScope st) (-1))
+                                    else agregarSimbolo v (SymInfo tn (currentScope st) (-1) False)
 
 {-|
     Agregamos a la tabla de simbolos las variables definidas en ds
@@ -161,6 +209,7 @@ data ContextError = MultiplesDeclaraciones VarName
                   | VariableNoInicializada VarName
                   | TiposNoCoinciden Exp Exp Tipo
                   | TipoIncorrecto Exp Tipo
+                  | VariableDeIteracion VarName
 
 instance Show ContextError where
     show (MultiplesDeclaraciones v) = "Error estatico: " ++
@@ -173,9 +222,11 @@ instance Show ContextError where
         (show e1) ++ 
         (show e2) ++
         "Son incorrectos. Ambas expresiones deben ser de " ++ (show t)
-    show (TipoIncorrecto e1 t) = "La expresion :\n" ++
+    show (TipoIncorrecto e1 t) = "La expresion: \n" ++
         (show e1) ++
         "Debe ser del tipo: " ++ (show t) 
+    show (VariableDeIteracion id) = "La variable: '" ++ id ++
+        "' es una variable protegida, no puede modificarse dentro de un ciclo"
 
 instance Error ContextError
 
@@ -186,7 +237,11 @@ analizar (I_Declare ds is) = do
     analizarInstrucciones is
     eliminarDeclaraciones ds
 analizar (I_Assign id exp) = do
-    t_var <- buscarTipo id
+    t_var  <- buscarTipo id
+    tabs   <- gets tabla
+    case buscarSymInfo id tabs of
+        Just (SymInfo _ _ _ True) -> throwError $ VariableDeIteracion id
+        otherwise                 -> return ()
     case t_var of 
         --  Si id es una variable cinta entonces el lado
         --  derecho debe ser una expresion de la forma [ E ] 
@@ -209,20 +264,23 @@ analizar (I_IfElse cond exito fallo) = do
     chequearTipoDeExpresion cond Tipo_Boolean
     analizarInstrucciones exito
     analizarInstrucciones fallo
-analizar (I_While guardia is)      = do
+analizar (I_While guardia is) = do
     chequearTipoDeExpresion guardia Tipo_Boolean
     analizarInstrucciones is 
 analizar (I_For id e1 e2 is) = do
-    t  <- buscarTipo id
+    t <- buscarTipo id
+    chequearTipoDeExpresion (E_Var id) Tipo_Integer
+    chequearTipoDeExpresion e1 Tipo_Integer
+    chequearTipoDeExpresion e2 Tipo_Integer
+    marcarVariableOcupada id
+    analizarInstrucciones is
+    marcarVariableLibre id
+analizar (I_From e1 e2 is) = do
     chequearTipoDeExpresion e1 Tipo_Integer
     chequearTipoDeExpresion e2 Tipo_Integer
     analizarInstrucciones is
-analizar (I_From e1 e2 is)   = do
-    chequearTipoDeExpresion e1 Tipo_Integer
-    chequearTipoDeExpresion e2 Tipo_Integer
-    analizarInstrucciones is
-analizar (I_Write e)         = return ()
-analizar (I_Read id )        = do
+analizar (I_Write e)  = return ()
+analizar (I_Read id ) = do
     buscarTipo id 
     return ()
 analizar (I_Ejec cadena e) = do
@@ -245,32 +303,23 @@ getType (E_Const _)          = return Tipo_Integer
 getType (E_Var id)           = buscarTipo id 
 getType (E_True)             = return Tipo_Boolean
 getType (E_False)            = return Tipo_Boolean
-getType (E_BinOp op e1 e2) = do
+getType (E_BinOp op e1 e2)   = do
     case op of 
-        Op_Sum -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Res -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Mul -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Div -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Con -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean
-        Op_Dis -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean
+        Op_Con    -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean
+        Op_Dis    -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean
+        otherwise -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
 getType (E_Comp op e1 e2)  = do
-    case op of 
-        Op_Eq  -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Neq -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Gt  -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Geq -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Lt  -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Leq -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
+    chequearTipoDeExpresiones e1 e2 Tipo_Integer
     return Tipo_Boolean
-getType (E_UnOp op e)    = do
+getType (E_UnOp op e) = do
     case op of
         Op_NegArit -> chequearTipoDeExpresion e Tipo_Integer
         Op_NegBool -> chequearTipoDeExpresion e Tipo_Boolean
         Op_Inspecc -> do 
             chequearTipoDeExpresion e Tipo_Tape
             return Tipo_Integer
-getType (E_Paren e)     = getType e
-getType (E_Corch e)     = getType e
+getType (E_Paren e) = getType e
+getType (E_Corch e) = getType e
 
 analizarInstrucciones :: [Inst]
                       -> Analizador ()
@@ -295,4 +344,3 @@ chequearTipoDeExpresion e t = do
     if t1 == t
         then return t
         else throwError $ TipoIncorrecto e t
-
