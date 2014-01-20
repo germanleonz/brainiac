@@ -1,6 +1,6 @@
 import LexBrainiac
 import SinBrainiac
-import ContBrainiac
+import BrainiacMachine
 
 main :: IO ()
 main = do
@@ -10,12 +10,20 @@ main = do
         then 
             mapM_ print errores
         else do
-            let ast = calc tokens
-            analisis ast 
+            let ast = calc tokens 
+            analisis ast
+            ejecutar ast
 
 analisis :: Inst -> IO ()
 analisis ast = do
-    result <- correrAnalizador $ analizar ast 
-    case result of
-        (Left err) -> putStrLn $ show err
-        otherwise  -> print $ ast
+    res <- correrAnalizador $ analizar ast 
+    case res of
+        (Left err)     -> putStrLn $ show err
+        (Right (_, s)) -> print ast 
+
+ejecutar :: Inst -> IO ()
+ejecutar ast = do
+    res <- correrAnalizador $ correr ast 
+    case res of
+        (Left err)     -> putStrLn $ show err
+        (Right (_, s)) -> print s

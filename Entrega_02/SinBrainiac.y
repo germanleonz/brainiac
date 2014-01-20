@@ -1,14 +1,13 @@
 {
 module SinBrainiac where
 
-import LexBrainiac 
-
-import qualified Data.Sequence as DS
-import qualified Data.Foldable as DF
-
 import Control.Monad.Identity
 import Control.Monad.State
 import Control.Monad.Writer
+import qualified Data.Foldable as DF
+import qualified Data.Sequence as DS
+
+import LexBrainiac 
 }
 
 %name calc
@@ -172,7 +171,7 @@ B_Inst :: { B_Inst }
 --
 
 type VarName = String
-type Valor = Int
+type Valor   = Num
 
 data Declaracion = Decl VarName Tipo deriving (Show)
 
@@ -225,6 +224,15 @@ data OpBin = Op_Sum
            | Op_Con
            | Op_Dis
 
+instance Show OpBin where
+    show Op_Sum = "'Suma'"
+    show Op_Res = "'Resta'"
+    show Op_Mul = "'Multiplicacion'"
+    show Op_Div = "'Division'"
+    show Op_Mod = "'Modulo'"
+    show Op_Dis = "'Disyuncion'"
+    show Op_Con = "'Conjuncion'"
+
 data OpComp = Op_Eq
             | Op_Neq
             | Op_Lt 
@@ -232,9 +240,22 @@ data OpComp = Op_Eq
             | Op_Gt
             | Op_Geq 
 
+instance Show OpComp where
+    show Op_Eq  = "'Igual'"
+    show Op_Neq = "'No Igual'"
+    show Op_Lt  = "'Menor que'"
+    show Op_Leq = "'Menor o igual'"
+    show Op_Gt  = "'Mayor que'"
+    show Op_Geq = "'Mayor o igual'"
+
 data OpUn = Op_NegArit
           | Op_NegBool
           | Op_Inspecc
+
+instance Show OpUn where
+    show Op_NegArit = "'Negacion Aritmetica'"
+    show Op_NegBool = "'Negacion Booleana'"
+    show Op_Inspecc = "'Inspeccion'"
 
 data Tipo = Tipo_Boolean
           | Tipo_Integer 
@@ -246,28 +267,6 @@ instance Show Tipo where
     show (Tipo_Boolean) = "tipo boolean"
     show (Tipo_Tape)    = "tipo cinta"
 
-instance Show OpBin where
-    show Op_Sum = "'Suma'"
-    show Op_Res = "'Resta'"
-    show Op_Mul = "'Multiplicacion'"
-    show Op_Div = "'Division'"
-    show Op_Mod = "'Modulo'"
-    show Op_Dis = "'Disyuncion'"
-    show Op_Con = "'Conjuncion'"
-
-instance Show OpComp where
-    show Op_Eq  = "'Igual'"
-    show Op_Neq = "'No Igual'"
-    show Op_Lt  = "'Menor que'"
-    show Op_Leq = "'Menor o igual'"
-    show Op_Gt  = "'Mayor que'"
-    show Op_Geq = "'Mayor o igual'"
-
-instance Show OpUn where
-    show Op_NegArit = "'Negacion Aritmetica'"
-    show Op_NegBool = "'Negacion Booleana'"
-    show Op_Inspecc = "'Inspeccion'"
-
 --
 -- Funcion de error
 --
@@ -277,6 +276,7 @@ parseError tks = error $ "Error sintactico, Simbolo inesperado " ++ show (head t
 --
 -- Impresion del AST (arbol sintactico abstracto)
 --
+
 data PrintState = PrintState {
     tabs :: Int
 } deriving (Show)
@@ -294,45 +294,46 @@ correrImpresor = (DF.foldl (++) "") . snd . runIdentity . runWriterT . (flip run
 type Impresor a = StateT PrintState (WriterT AST_String Identity) a
 
 impresor :: Inst -> Impresor ()
+
 impresor (I_Assign id e) = do
     imprimirNoTerminal "ASIGNACION" 
     subirTabs
     imprimirNoTerminal $ "- variable: " ++ id
-    imprimirExpresion "- val: " e
+    imprimirExpresion    "- val: " e
     bajarTabs
 impresor (I_If b exito) = do
     imprimirNoTerminal "CONDICIONAL" 
     subirTabs
-    imprimirExpresion "- guardia:" b
-    imprimirInstrucciones "- exito: " exito
+    imprimirExpresion     "- guardia:" b
+    imprimirInstrucciones "- exito: "  exito
     bajarTabs
 impresor (I_IfElse b exito fallo) = do
-    imprimirNoTerminal "CONDICIONAL_IF_ELSE"
+    imprimirNoTerminal "CONDICIONAL IF-ELSE"
     subirTabs
-    imprimirExpresion "- guardia: " b
-    imprimirInstrucciones "- exito: " exito
-    imprimirInstrucciones "- fallo: " fallo
+    imprimirExpresion     "- guardia: " b
+    imprimirInstrucciones "- exito: "   exito
+    imprimirInstrucciones "- fallo: "   fallo
     bajarTabs
 impresor (I_While b c) = do
-    imprimirNoTerminal "ITERACION_INDETERMINADA" 
+    imprimirNoTerminal "ITERACION INDETERMINADA" 
     subirTabs
-    imprimirExpresion "- guardia:" b
-    imprimirInstrucciones "- cuerpo:" c
+    imprimirExpresion     "- guardia:" b
+    imprimirInstrucciones "- cuerpo:"  c
     bajarTabs
 impresor (I_For id e1 e2 c) = do
-    imprimirNoTerminal "ITERACION_DETERMINADA - FOR" 
+    imprimirNoTerminal "ITERACION DETERMINADA - FOR" 
     subirTabs
-    imprimirNoTerminal $ "- variable: " ++ id
-    imprimirExpresion "- e1: " e1
-    imprimirExpresion "- e2: " e2
+    imprimirNoTerminal $  "- variable: " ++ id
+    imprimirExpresion     "- e1: "     e1
+    imprimirExpresion     "- e2: " e2
     imprimirInstrucciones "- cuerpo: " c
     bajarTabs
 impresor (I_From e1 e2 c) = do
-    imprimirNoTerminal "ITERACION_DETERMINADA - FROM"
+    imprimirNoTerminal "ITERACION DETERMINADA - FROM"
     subirTabs
-    imprimirExpresion "- lim_inferior:" e1 
-    imprimirExpresion "- lim_superior:" e2 
-    imprimirInstrucciones "- cuerpo: " c
+    imprimirExpresion     "- lim_inferior:" e1 
+    imprimirExpresion     "- lim_superior:" e2 
+    imprimirInstrucciones "- cuerpo: "      c
     bajarTabs
 impresor (I_Declare _ is) = imprimirInstrucciones "SECUENCIACION" is
 impresor (I_Write e) = do
@@ -362,8 +363,6 @@ impresor (I_Concat e1 e2) = do
 --  Impresion de expresiones
 --
 
-/*type ExpToString = */
-
 impresorE :: Exp -> Impresor ()
 
 impresorE (E_Const c)        = imprimirNoTerminal $ show c
@@ -374,24 +373,24 @@ impresorE (E_BinOp op e1 e2) = do
     imprimirNoTerminal "BIN_ARITMETICO"
     subirTabs
     imprimirNoTerminal $ "- operacion: " ++ (show op)
-    imprimirExpresion "- operador izquierdo: " e1
-    imprimirExpresion "- operador derecho: " e2
+    imprimirExpresion    "- operador izquierdo: " e1
+    imprimirExpresion    "- operador derecho: "   e2
     bajarTabs
 impresorE (E_Comp op e1 e2)  = do
     imprimirNoTerminal "BIN_RELACIONAL"
     subirTabs
     imprimirNoTerminal $ "- operacion: " ++ (show op)
-    imprimirExpresion "- operador izquierdo: " e1
-    imprimirExpresion "- operador derecho: " e2
+    imprimirExpresion    "- operador izquierdo: " e1
+    imprimirExpresion    "- operador derecho: " e2
     bajarTabs
 impresorE (E_UnOp op e) = do
     imprimirExpresion (show op) e
-impresorE (E_Paren e)   = do
+impresorE (E_Paren e) = do
     imprimirNoTerminal "PARENTESIS" 
     subirTabs
     imprimirExpresion "- expr: " e
     bajarTabs
-impresorE (E_Corch e)   = do
+impresorE (E_Corch e) = do
     imprimirNoTerminal "CORCHETES" 
     subirTabs
     imprimirExpresion "- expr: " e
