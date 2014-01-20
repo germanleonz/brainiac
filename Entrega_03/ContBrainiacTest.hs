@@ -11,19 +11,19 @@ main = do
             mapM_ print errores
         else do
             let ast = calc tokens 
+            print ast
             analisis ast
-            ejecutar ast
 
 analisis :: Inst -> IO ()
 analisis ast = do
     res <- correrAnalizador $ analizar ast 
     case res of
         (Left err)     -> putStrLn $ show err
-        (Right (_, s)) -> print ast 
+        (Right (_, s)) -> ejecutar ast
 
 ejecutar :: Inst -> IO ()
 ejecutar ast = do
     res <- correrAnalizador $ correr ast 
     case res of
         (Left err)     -> putStrLn $ show err
-        (Right (_, s)) -> print s
+        (Right (_, s)) -> return ()

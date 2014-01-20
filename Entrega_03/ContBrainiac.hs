@@ -286,26 +286,22 @@ analizar i@(I_Assign id exp) = do
                 (E_Var _)    -> chequearTipoDeExpresion     exp Tipo_Tape
                 (E_Corch ec) -> chequearTipoDeExpresion     ec  Tipo_Integer
                 otherwise    -> throwError $ TipoIncorrecto exp Tipo_Tape
-            return ()
+            continue
         --  En caso contrario se verifica que ambos lados de la asignacion
         --  sean del mismo tipo 
         otherwise -> do
             chequearTipoDeExpresion exp t_var
-            return ()
-    {-guardarInstruccion $ correr i-}
+            continue
 analizar i@(I_If cond exito) = do
     chequearTipoDeExpresion cond Tipo_Boolean
     analizarInstrucciones exito
-    {-guardarInstruccion $ correr i-}
 analizar i@(I_IfElse cond exito fallo) = do
     chequearTipoDeExpresion cond Tipo_Boolean
     analizarInstrucciones exito
     analizarInstrucciones fallo
-    {-guardarInstruccion $ correr i-}
 analizar i@(I_While guardia is) = do
     chequearTipoDeExpresion guardia Tipo_Boolean
     analizarInstrucciones is 
-    {-guardarInstruccion $ correr i-}
 analizar i@(I_For id e1 e2 is) = do
     t <- buscarTipo id
     chequearTipoDeExpresion e1 Tipo_Integer
@@ -313,22 +309,17 @@ analizar i@(I_For id e1 e2 is) = do
     marcarVariableOcupada id
     analizarInstrucciones is
     marcarVariableLibre id
-    {-guardarInstruccion $ correr i-}
 analizar i@(I_From e1 e2 is) = do
     chequearTipoDeExpresion e1 Tipo_Integer
     chequearTipoDeExpresion e2 Tipo_Integer
     analizarInstrucciones is
-    {-guardarInstruccion $ correr i-}
 analizar i@(I_Write e)  = return ()
-    {-guardarInstruccion $ correr i-}
 analizar i@(I_Read id ) = do
     buscarTipo id 
-    {-guardarInstruccion $ correr i-}
     continue
 analizar i@(I_Ejec cadena e) = do
     chequearTipoDeExpresion e Tipo_Tape
     continue
-    {-guardarInstruccion $ correr i-}
 analizar i@(I_Concat e1 e2) = do
     case e1 of
         (E_Var _)    -> chequearTipoDeExpresion e1 Tipo_Tape
@@ -339,7 +330,6 @@ analizar i@(I_Concat e1 e2) = do
         (E_Corch ec) -> chequearTipoDeExpresion ec Tipo_Integer
         otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Tape
     continue
-    {-guardarInstruccion $ correr i-}
 
 conseguirTipo :: Exp -> Analizador Tipo
 
@@ -409,14 +399,25 @@ correr i@(I_While g cuerpo) = do
             correrSecuencia cuerpo
             correr i
         otherwise      -> continue
-correr i@(I_For id inf sup c) = undefined
-correr i@(I_From inf sup c)   = undefined
+correr i@(I_For id inf sup c) = do
+    vinf <- evaluar inf
+    vsup <- evaluar sup
+    let val_inf = unpackNum vinf
+    let val_sup = unpackNum vsup
+    let go val_inf | val_inf >  val_sup = continue
+        go val_inf | val_inf <= val_sup = do
+            correrSecuencia c 
+            cambiarValor id (ValorNum val_inf)
+            go (val_inf + 1)
+        in go val_inf
+correr i@(I_From inf sup c) = undefined
 correr (I_Declare ds is) = do
     procesarDeclaraciones ds
     correrSecuencia is 
     eliminarDeclaraciones ds 
-correr (I_Write e) = undefined
+correr (I_Write e) = liftIO $ putStr (show e)
 correr (I_Read id) = undefined
+    {-liftIO $ readLn-}
 correr (I_Ejec cadena cinta) = undefined
 correr (I_Concat c1 c2)      = undefined
 
@@ -447,8 +448,8 @@ evaluar (E_BinOp op e1 e2)   = do
         Op_Sum -> return $ ValorNum $ (unpackNum lv) + (unpackNum rv)
         Op_Res -> return $ ValorNum $ (unpackNum lv) - (unpackNum rv)
         Op_Mul -> return $ ValorNum $ (unpackNum lv) * (unpackNum rv)
-        {-Op_Div | rv == 0   -> throwError DivisionPorCero-}
-        {-Op_Div | otherwise -> return $ ValorNum $ (unpackNum lv) div (unpackNum rv)-}
+        Op_Div | (unpackNum rv) == 0 -> throwError DivisionPorCero
+        Op_Div | otherwise -> return $ ValorNum $ (unpackNum lv) `div` (unpackNum rv)
         Op_Dis -> return $ ValorBool $ (unpackBool lv) || (unpackBool rv)
         Op_Con -> return $ ValorBool $ (unpackBool lv) && (unpackBool rv)
 evaluar (E_Comp op e1 e2) = undefined
