@@ -18,6 +18,7 @@ where
 import Control.Monad.Error
 import Control.Monad.State
 import Control.Monad.Writer
+import Data.Char as C
 import Data.Sequence as DS
 import qualified Data.Map as DM
 
@@ -46,7 +47,12 @@ data BrainVal = ValorNum Int
               | ValorBool Bool
               | ValorCinta Cinta 
               | Null
-              deriving (Eq, Show)
+              deriving (Eq)
+
+instance Show BrainVal where 
+    show (ValorNum v)   = show v
+    show (ValorBool v)  = show v
+    show (ValorCinta v) = show v
 
 {-| 
     Crear una tabla de simbolos vacia    
@@ -132,7 +138,7 @@ buscarValor id = do
  -}
 cambiarValor :: VarName -> BrainVal -> Analizador ()
 cambiarValor id vn = do
-    liftIO $ putStrLn $ "ASIGNANDOLE " ++ (show vn) ++ " a la variable " ++ id
+    {-liftIO $ putStrLn $ "ASIGNANDOLE " ++ (show vn) ++ " a la variable " ++ id-}
     modify $ (\s -> s { tabla = actualizar id vn (tabla s) })
 
 {-|
@@ -145,7 +151,7 @@ marcarVariableOcupada id = do
         Just (InfoSim t l val b) -> do
             eliminarDeclaracion (Decl id t) 
             agregarSimbolo id (InfoSim t l val True)
-        otherwise -> return ()
+        otherwise -> continue
 
 {-|
     Marcamos a la variable id como libre en la tabla de simbolos
@@ -157,7 +163,7 @@ marcarVariableLibre id = do
         Just (InfoSim t l val b) -> do
             eliminarDeclaracion (Decl id t) 
             agregarSimbolo id (InfoSim t l val False)
-        otherwise -> return ()
+        otherwise -> continue
 
 {-|
     Eliminamos la declaracion d de la tabla de simbolos
@@ -200,13 +206,6 @@ eliminarDeclaraciones :: [Declaracion] -> Analizador ()
 eliminarDeclaraciones ds = do
     mapM_ eliminarDeclaracion ds
     modify (\s -> s { currentScope = (currentScope s) - 1 })
-
---
---  Funciones correspondientes al armado de la secuencia monadica
---  de instrucciones 
---
-{-guardarInstruccion :: Analizador () -> Analizador ()-}
-{-guardarInstruccion m_instr = modify (\s -> s { ejecucion = (ejecucion s) |> m_instr })-}
 
 ------------------------------------------------------------------------
 --  Definicion del Monad analizador de errores de contexto            --
@@ -256,8 +255,6 @@ instance Show BrainiacError where
         "Debe ser del tipo: " ++ (show t) 
     show (VariableDeIteracion id) = "La variable: '" ++ id ++
         "' es una variable protegida, no puede modificarse dentro de un ciclo"
-    {-show (VariableNoInicializada v) = "Error dinamico: " ++-}
-        {-"La variable " ++ v ++ " no ha sido inicializada"-}
     show (DivisionPorCero) = "Error dinamico: division por cero"
     show (CintaMalFormada) = "Error dinamico: Cinta mal formada"
 
@@ -283,9 +280,9 @@ analizar i@(I_Assign id exp) = do
         --  V variable tipo cinta
         Tipo_Tape -> do
             case exp of
-                (E_Var _)    -> chequearTipoDeExpresion     exp Tipo_Tape
+                {-(E_Var _)    -> chequearTipoDeExpresion     exp Tipo_Tape-}
                 (E_Corch ec) -> chequearTipoDeExpresion     ec  Tipo_Integer
-                otherwise    -> throwError $ TipoIncorrecto exp Tipo_Tape
+                otherwise    -> throwError $ TipoIncorrecto exp Tipo_Integer
             continue
         --  En caso contrario se verifica que ambos lados de la asignacion
         --  sean del mismo tipo 
@@ -313,7 +310,7 @@ analizar i@(I_From e1 e2 is) = do
     chequearTipoDeExpresion e1 Tipo_Integer
     chequearTipoDeExpresion e2 Tipo_Integer
     analizarInstrucciones is
-analizar i@(I_Write e)  = return ()
+analizar i@(I_Write e)  = continue
 analizar i@(I_Read id ) = do
     buscarTipo id 
     continue
@@ -381,7 +378,12 @@ correr :: Inst -> Analizador ()
 
 correr (I_Assign id exp) = do 
     v_exp <- evaluar exp
-    cambiarValor id v_exp
+    t_var <- buscarTipo id
+    case t_var of
+        --  Construccion de una cinta
+        Tipo_Tape -> cambiarValor id (ValorCinta (cintaVacia $ unpackNum v_exp))
+        --  Asignacion de la evaluacion de una expresion en un entero o un booleano
+        otherwise -> cambiarValor id v_exp
 correr (I_If b exito) = do 
     v_exp <- evaluar b 
     case v_exp of
@@ -395,9 +397,7 @@ correr (I_IfElse b exito fallo) = do
 correr i@(I_While g cuerpo) = do
     val_g <- evaluar g
     case val_g of
-        ValorBool True -> do
-            correrSecuencia cuerpo
-            correr i
+        ValorBool True -> correrSecuencia cuerpo >> correr i
         otherwise      -> continue
 correr i@(I_For id inf sup c) = do
     vinf <- evaluar inf
@@ -410,16 +410,46 @@ correr i@(I_For id inf sup c) = do
             cambiarValor id (ValorNum val_inf)
             go (val_inf + 1)
         in go val_inf
-correr i@(I_From inf sup c) = undefined
+correr i@(I_From inf sup c) = do
+    vinf <- evaluar inf
+    vsup <- evaluar sup
+    let val_inf = unpackNum vinf
+    let val_sup = unpackNum vsup
+    let go val_inf | val_inf >  val_sup = continue
+        go val_inf | val_inf <= val_sup = do
+            correrSecuencia c 
+            go $ val_inf + 1
+        in go val_inf
 correr (I_Declare ds is) = do
     procesarDeclaraciones ds
     correrSecuencia is 
     eliminarDeclaraciones ds 
-correr (I_Write e) = liftIO $ putStr (show e)
-correr (I_Read id) = undefined
+correr (I_Write e) = evaluar e >>= liftIO . putStr . show
+correr (I_Read id) = do
+    t_var <- buscarTipo id
+    {-case t_var of-}
+        {-Tipo_Integer -> do-}
+            {-data <- read :: IO Int-}
+        {-Tipo_Boolean -> read :: IO Bool-}
+        {-otherwise -> throwError $ ErrorDeEntrada id-}
     {-liftIO $ readLn-}
-correr (I_Ejec cadena cinta) = undefined
-correr (I_Concat c1 c2)      = undefined
+    -- Conseguir un valor de la consola 
+    -- si es true o false verificar que id sea tipo boolean y hacer cambioValor
+    -- si es un numero verificar que id sea tipo integer y hacer cambiarvalor
+    -- en cualquier otro caso 
+    continue
+correr (I_Ejec cadena cinta) = do
+    case cinta of 
+        (E_Var v) -> do 
+            c  <- buscarValor v    
+            nc <- ejecutarCadena cadena (unpackCinta c)
+            cambiarValor v (ValorCinta nc)
+        otherwise -> do
+            n <- evaluar cinta 
+            ejecutarCadena cadena (cintaVacia $ unpackNum n)
+            continue
+correr (I_Concat c1 c2)      = do
+    continue
 
 continue :: Analizador ()
 continue = return ()
@@ -452,48 +482,74 @@ evaluar (E_BinOp op e1 e2)   = do
         Op_Div | otherwise -> return $ ValorNum $ (unpackNum lv) `div` (unpackNum rv)
         Op_Dis -> return $ ValorBool $ (unpackBool lv) || (unpackBool rv)
         Op_Con -> return $ ValorBool $ (unpackBool lv) && (unpackBool rv)
-evaluar (E_Comp op e1 e2) = undefined
-{-evaluarA (E_Comp op e1 e2) = do-}
-    {-lv <- evaluar e1 Tipo_Integer-}
-    {-rv <- evaluar e2 Tipo_Integer-}
-    {-let f = case op of -}
-        {-Op_Eq -> (==)-}
-    {-return $ lv `f` rv-}
+evaluar (E_Comp op e1 e2) = do
+    lv <- evaluar e1
+    rv <- evaluar e2
+    case op of 
+        Op_Eq  -> return $ ValorBool $ (unpackNum lv) == (unpackNum rv)
+        Op_Neq -> return $ ValorBool $ (unpackNum lv) /= (unpackNum rv)
+        Op_Lt  -> return $ ValorBool $ (unpackNum lv) <  (unpackNum rv)
+        Op_Leq -> return $ ValorBool $ (unpackNum lv) <= (unpackNum rv)
+        Op_Gt  -> return $ ValorBool $ (unpackNum lv) >  (unpackNum rv)
+        Op_Geq -> return $ ValorBool $ (unpackNum lv) >= (unpackNum rv)
 evaluar (E_UnOp op e) = do
     v <- evaluar e
     case op of
-        Op_NegArit -> return $ ValorNum $ negate $ unpackNum v
+        Op_NegArit -> return $ ValorNum  $ negate $ unpackNum v
         Op_NegBool -> return $ ValorBool $ not $ unpackBool v
-        {-Op_Inspecc -> return $ conseguirPrimero e-}
+        Op_Inspecc -> return $ ValorNum  $ conseguirPrimero $ unpackCinta v
 evaluar (E_Paren e) = evaluar e
 evaluar (E_Corch e) = evaluar e
 
-unpackNum (ValorNum v)     = v
-unpackBool (ValorBool b)   = b
-unpackCinta (ValorCinta c) = c
+--
+--  Definicion de la cinta y las operaciones sobre ella
+--
 
 data Cinta = Cinta {
-    posActual :: Int,
-    valores   :: DM.Map Int Int
+    primero :: Int,
+    valores :: DM.Map Int Int,
+    tamano  :: Int
 } deriving (Show, Eq)
 
-cintaVacia :: Cinta
-cintaVacia = Cinta 0 DM.empty
+cintaVacia :: Int -> Cinta
+cintaVacia n = Cinta 0 DM.empty n
 
-{-conseguirValor = DM.findWithDefault 0 (posActual dat) (valores dat)-}
-{-conseguirPrimero = DM.findWithDefault 0 0 (valores dat)-}
+conseguirPrimero :: Cinta -> Int 
+conseguirPrimero c = DM.findWithDefault 0 (primero c) (valores c)
 
-{-modificarCasilla fn dat = dat { valores = newValues }-}
-    {-where -}
-        {-oldValue  = dataGet dat-}
-        {-newValues = DM.insert (currentPos dat) (fn oldValue) (values dat)-}
+moverPrimero :: (Int -> Int) -> Cinta -> Cinta
+moverPrimero fn c = c { primero = np }
+    where 
+        np = (fn $ primero c) `mod` t
+        t  = tamano c
 
-{-cambiarPosicion fn dat = dat { posActual = fn (posActual dat) } -}
+modificarCasilla :: (Int -> Int) -> Cinta -> Cinta
+modificarCasilla fn c = c { valores = newValues }
+    where 
+        oldValue  = conseguirPrimero c
+        newValues = DM.insert (primero c) (fn oldValue) (valores c)
 
-evalC :: B_Inst -> Cinta -> Analizador ()
-evalC (C_Sum) c = undefined
-evalC (C_Res) c = undefined
-evalC (C_Izq) c = undefined
-evalC (C_Der) c = undefined
-evalC (C_Imp) c = undefined
-evalC (C_Lee) c = undefined
+ejecutarCadena :: [B_Inst] -> Cinta -> Analizador Cinta
+ejecutarCadena cadena cinta = foldM evalC cinta cadena 
+
+evalC :: Cinta -> B_Inst -> Analizador Cinta
+evalC c (C_Sum) = return $ modificarCasilla inc c
+evalC c (C_Res) = return $ modificarCasilla dec c
+evalC c (C_Izq) = return $ moverPrimero dec c
+evalC c (C_Der) = return $ moverPrimero inc c
+evalC c (C_Imp) = do
+    liftIO $ putStr $ show $ C.chr $ conseguirPrimero c
+    return c
+evalC c (C_Lee) = do
+    {-liftIO $ readInt -}
+    return c
+
+inc :: Int -> Int
+inc = (+1) 
+          
+dec :: Int -> Int
+dec x = x - 1
+
+unpackNum   (ValorNum v)   = v
+unpackBool  (ValorBool b)  = b
+unpackCinta (ValorCinta c) = c

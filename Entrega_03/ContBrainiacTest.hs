@@ -11,7 +11,6 @@ main = do
             mapM_ print errores
         else do
             let ast = calc tokens 
-            print ast
             analisis ast
 
 analisis :: Inst -> IO ()

@@ -73,6 +73,7 @@ import LexBrainiac
 
 AST :: { Inst }
      : 'declare' Ds 'execute' Is 'done'   { I_Declare $2 $4 }
+     | 'execute' Is 'done'                { I_Declare [] $2 }
 
 Ds :: { [Declaracion] }
             : V_Decl                      { $1 }
@@ -124,8 +125,9 @@ I :: { Inst }
   | 'if' B 'then' Is 'else' Is 'done'                 { I_IfElse $2 $4 $6 }
   | 'while' B 'do' Is 'done'                          { I_While $2 $4 }
   | 'for' ident 'from' E 'to' E 'do' Is 'done'        { I_For $2 $4 $6 $8 }
-  | 'from' E 'to' E 'do' Is 'done'                    { I_From $2 $4 $6 }
+  | 'for' E 'to' E 'do' Is 'done'                     { I_From $2 $4 $6 }
   | 'declare' Ds 'execute' Is 'done'                  { I_Declare $2 $4 }
+  | 'execute' Is 'done'                               { I_Declare [] $2 }
   | 'write' E                                         { I_Write $2 }
   | 'read' ident                                      { I_Read $2 }
   | '{' cadena '}' 'at' E                             { I_Ejec $2 $5 }
@@ -171,7 +173,7 @@ B_Inst :: { B_Inst }
 --
 
 type VarName = String
-type Valor   = Num
+type Valor   = Int
 
 data Declaracion = Decl VarName Tipo deriving (Show)
 
