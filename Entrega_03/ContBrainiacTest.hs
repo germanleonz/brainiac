@@ -25,4 +25,4 @@ ejecutar ast = do
     res <- correrAnalizador $ correr ast 
     case res of
         (Left err)     -> putStrLn $ show err
-        (Right (_, s)) -> return ()
+        (Right (_, s)) -> return () --print ast >> print s

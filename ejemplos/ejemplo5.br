@@ -1,12 +1,15 @@
 declare x, y :: integer execute
-    $- read x ; 
-     read y ; -$
+    $$ read x ;
+    $$ read y ;
+    x := 9; 
+    y := 5;
     while x /= y do
         if x > y then
             x := x - y
         else
             y := y - x
         done
-    done
+    done;
     $- El maximo comun divisor ahora esta en 'x' y en 'y'. -$
+    write x
 done

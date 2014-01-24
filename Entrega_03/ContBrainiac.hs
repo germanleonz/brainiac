@@ -110,6 +110,8 @@ actualizar id vn (TablaSim m) = TablaSim $ DM.alter f id m
 agregarSimbolo :: VarName -> InfoSim -> Analizador ()
 agregarSimbolo id info = modify (\s -> s { tabla = insertar id info (tabla s)})
 
+{-cambiar las proximas tres funciones por una sola-}
+
 {-|
     Buscamos variable id en el scope mas interno esta bloqueada
     En caso de que no este en la tabla de simbolos se lanza un error
@@ -119,7 +121,7 @@ buscarOcupada id = do
     tabla <- gets tabla
     maybe fallo exito (buscarInfoSim id tabla) 
     where exito = return . ocupado
-          fallo = throwError $ VariableDeIteracion id
+          fallo = throwError $ VariableNoDeclarada id
 
 {-|
     Buscamos el tipo de datos de la variable id en el scope mas interno.
@@ -154,6 +156,8 @@ cambiarValor id vn = do
     if estaOcupada
         then throwError $ VariableDeIteracion id      
         else modify $ (\s -> s { tabla = actualizar id vn (tabla s) })
+
+{-cambiar las dos funciones anteriores por una sola-}
 
 {-|
     Marcamos a la variable id como bloqueada en la tabla de simbolos
@@ -199,9 +203,9 @@ procesarDeclaracion (Decl id tn) = do
                  ocupado = False
                }
     case buscarInfoSim id tabla of 
-        Nothing                              -> agregarSimbolo id info
-        Just (InfoSim t l val b) | l == cs   -> throwError $ MultiplesDeclaraciones id 
-        Just (InfoSim t l val b) | otherwise -> agregarSimbolo id info
+        Nothing                            -> agregarSimbolo id info
+        Just (InfoSim _ l _ _) | l == cs   -> throwError $ MultiplesDeclaraciones id 
+        Just (InfoSim _ _ _ _) | otherwise -> agregarSimbolo id info
 
 {-|
     Agregamos a la tabla de simbolos las variables definidas en ds
@@ -250,13 +254,14 @@ data BrainiacError = MultiplesDeclaraciones VarName
                    | TipoIncorrecto Exp Tipo
                    | VariableDeIteracion VarName
                    | VariableNoInicializada VarName
+                   | ErrorLecturaCinta VarName
                    | DivisionPorCero
                    | CintaMalFormada
-                   | ErrorDeEntrada VarName
+                   | ErrorDeEntrada Tipo
 
 instance Show BrainiacError where
     show (MultiplesDeclaraciones id) = "Error estatico: " ++
-        "Multiples declaraciones de la variable '" ++ id ++ "'"
+        "Redeclaracion de la variable '" ++ id ++ "'"
     show (VariableNoDeclarada id)    = "Error estatico: " ++
         "La variable '" ++ id ++ "' no ha sido declarada"
     show (VariableNoInicializada id) = "Error estatico: " ++
@@ -269,13 +274,15 @@ instance Show BrainiacError where
         (show e1) ++
         "Debe ser del tipo: " ++ (show t) 
     show (VariableDeIteracion id) = "Error estatico: " ++
-        "La variable: '" ++ id ++ "' es una variable protegida," ++
-        "no puede modificarse dentro de un ciclo"
-    show (ErrorDeEntrada id) = "Error estatico: " ++ 
+        "La variable: '" ++ id ++ "' no puede ser modificada en el ciclo"
+    show (ErrorLecturaCinta id) = "Error estatico: " ++ 
         "En la variable v '" ++ id ++ " no pueden leerse cintas " ++
         "de la entrada estandar"
     show (DivisionPorCero)  = "Error dinamico: division por cero"
-    show (CintaMalFormada)  = "Error dinamico: Cinta mal formada"
+    show (CintaMalFormada)  = "Error dinamico: una cinta no puede" ++
+        " tener tamano negativo"
+    show (ErrorDeEntrada t)  = "Error dinamico de lectura se esperaba un " ++
+        "valor de tipo " ++ (show t)
 
 instance Error BrainiacError
 
@@ -291,7 +298,6 @@ analizar i@(I_Assign id exp) = do
     if estaOcupada 
         then throwError $ VariableDeIteracion id
         else continue
-
     t_var <- buscarTipo id
     tabs  <- gets tabla
     case t_var of 
@@ -318,7 +324,14 @@ analizar i@(I_While guardia is) = do
     chequearTipoDeExpresion guardia Tipo_Boolean
     analizarInstrucciones is 
 analizar i@(I_For id e1 e2 is) = do
+    estaOcupada <- buscarOcupada id
+    if estaOcupada 
+        then throwError $ VariableDeIteracion id
+        else continue
     t <- buscarTipo id
+    if t == Tipo_Integer 
+        then continue
+        else throwError $ TipoIncorrecto (E_Var id) Tipo_Integer
     chequearTipoDeExpresion e1 Tipo_Integer
     chequearTipoDeExpresion e2 Tipo_Integer
     marcarVariableOcupada id
@@ -332,7 +345,7 @@ analizar i@(I_Write e)  = continue
 analizar i@(I_Read id ) = do
     t <- buscarTipo id 
     case t of
-        Tipo_Tape -> throwError $ ErrorDeEntrada id
+        Tipo_Tape -> throwError $ ErrorLecturaCinta id
         otherwise -> continue
 analizar i@(I_Ejec cadena e) = do
     case e of
@@ -409,7 +422,10 @@ correr (I_Assign id exp) = do
     t_var <- buscarTipo id
     case t_var of
         --  Construccion de una cinta
-        Tipo_Tape -> cambiarValor id (ValorCinta (cintaVacia $ unpackNum v_exp))
+        Tipo_Tape -> do
+            case v_exp of
+                ValorNum n | n <= 0 -> throwError $ CintaMalFormada
+                otherwise -> cambiarValor id (ValorCinta (cintaVacia $ unpackNum v_exp))
         --  Asignacion de la evaluacion de una expresion en un entero o un booleano
         otherwise -> cambiarValor id v_exp
 correr (I_If b exito) = do 
@@ -434,8 +450,8 @@ correr i@(I_For id inf sup c) = do
     let val_sup = unpackNum vsup
     let go val_inf | val_inf >  val_sup = continue
         go val_inf | val_inf <= val_sup = do
-            correrSecuencia c 
             cambiarValor id (ValorNum val_inf)
+            correrSecuencia c 
             go (val_inf + 1)
         in go val_inf
 correr i@(I_From inf sup c) = do
@@ -452,20 +468,21 @@ correr (I_Declare ds is) = do
     procesarDeclaraciones ds
     correrSecuencia is 
     eliminarDeclaraciones ds 
-correr (I_Write e) = evaluar e >>= liftIO . putStr . show
+correr (I_Write e) = evaluar e >>= liftIO . putStrLn . show
 correr (I_Read id) = do
     -- Conseguir un valor de la consola 
     -- si es true o false verificar que id sea tipo boolean y hacer cambioValor
     -- si es un numero verificar que id sea tipo integer y hacer cambiarvalor
     -- en cualquier otro caso error de entrada dinamico
     t_var <- buscarTipo id
-    {-case t_var of-}
-        {-Tipo_Integer -> do-}
-            {-data <- read :: IO Int-}
-        {-Tipo_Boolean -> read :: IO Bool-}
-        {-otherwise -> throwError $ ErrorDeEntrada id-}
-    {-liftIO $ readLn-}
-    continue
+    case t_var of
+        Tipo_Integer -> do
+            val <- leerEntero 
+            cambiarValor id val
+        Tipo_Boolean -> do
+            val <- leerBooleano 
+            cambiarValor id val
+        otherwise    -> throwError $ ErrorLecturaCinta id
 correr (I_Ejec cadena cinta) = do
     case cinta of 
         (E_Var id) -> do 
@@ -478,6 +495,25 @@ correr (I_Ejec cadena cinta) = do
             continue
 correr (I_Concat c1 c2)      = do
     continue
+
+leerBooleano :: Analizador BrainVal
+leerBooleano = do
+    liftIO $ putStr "hola"
+    str <- liftIO getLine
+    {-let str = "true"-}
+    case str of 
+        "true"    -> return $ ValorBool True
+        "false"   -> return $ ValorBool False
+        otherwise -> throwError $ ErrorDeEntrada Tipo_Boolean
+
+leerEntero :: Analizador BrainVal
+leerEntero = do
+    liftIO $ putStr "hola"
+    str <- liftIO getLine
+    {-let str = "3"-}
+    case all isNumber str of 
+        False     -> throwError $ ErrorDeEntrada Tipo_Integer
+        otherwise -> return $ ValorNum (read str)
 
 continue :: Analizador ()
 continue = return ()

@@ -1,0 +1,6 @@
+execute
+	bar := 3;
+	while bar > 2 then
+		foo := 35 + true * (84 -false)
+	done
+done
