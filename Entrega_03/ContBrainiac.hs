@@ -111,6 +111,17 @@ agregarSimbolo :: VarName -> InfoSim -> Analizador ()
 agregarSimbolo id info = modify (\s -> s { tabla = insertar id info (tabla s)})
 
 {-|
+    Buscamos variable id en el scope mas interno esta bloqueada
+    En caso de que no este en la tabla de simbolos se lanza un error
+-}
+buscarOcupada :: VarName -> Analizador Bool
+buscarOcupada id = do
+    tabla <- gets tabla
+    maybe fallo exito (buscarInfoSim id tabla) 
+    where exito = return . ocupado
+          fallo = throwError $ VariableDeIteracion id
+
+{-|
     Buscamos el tipo de datos de la variable id en el scope mas interno.
     En caso de que no este en la tabla de simbolos se lanza un error
 -}
@@ -129,7 +140,7 @@ buscarValor :: VarName -> Analizador BrainVal
 buscarValor id = do
     tabla <- gets tabla
     maybe fallo exito (buscarInfoSim id tabla) 
-    where exito = return . valor 
+    where exito = return . valor
           fallo = throwError $ VariableNoDeclarada id
 
 {-|
@@ -139,7 +150,10 @@ buscarValor id = do
 cambiarValor :: VarName -> BrainVal -> Analizador ()
 cambiarValor id vn = do
     {-liftIO $ putStrLn $ "ASIGNANDOLE " ++ (show vn) ++ " a la variable " ++ id-}
-    modify $ (\s -> s { tabla = actualizar id vn (tabla s) })
+    estaOcupada <- buscarOcupada id
+    if estaOcupada
+        then throwError $ VariableDeIteracion id      
+        else modify $ (\s -> s { tabla = actualizar id vn (tabla s) })
 
 {-|
     Marcamos a la variable id como bloqueada en la tabla de simbolos
@@ -238,14 +252,15 @@ data BrainiacError = MultiplesDeclaraciones VarName
                    | VariableNoInicializada VarName
                    | DivisionPorCero
                    | CintaMalFormada
+                   | ErrorDeEntrada VarName
 
 instance Show BrainiacError where
-    show (MultiplesDeclaraciones v) = "Error estatico: " ++
-        "Multiples declaraciones de la variable '" ++ v ++ "'"
-    show (VariableNoDeclarada v)    = "Error estatico: " ++
-        "La variable '" ++ v ++ "' no ha sido declarada"
-    show (VariableNoInicializada v) = "Error estatico: " ++
-        "La variable '" ++ v ++ "' no ha sido inicializada"
+    show (MultiplesDeclaraciones id) = "Error estatico: " ++
+        "Multiples declaraciones de la variable '" ++ id ++ "'"
+    show (VariableNoDeclarada id)    = "Error estatico: " ++
+        "La variable '" ++ id ++ "' no ha sido declarada"
+    show (VariableNoInicializada id) = "Error estatico: " ++
+        "La variable '" ++ id ++ "' no ha sido inicializada"
     show (TiposNoCoinciden e1 e2 t) = "Los tipos de :\n" ++
         (show e1) ++ 
         (show e2) ++
@@ -253,10 +268,14 @@ instance Show BrainiacError where
     show (TipoIncorrecto e1 t) = "La expresion: \n" ++
         (show e1) ++
         "Debe ser del tipo: " ++ (show t) 
-    show (VariableDeIteracion id) = "La variable: '" ++ id ++
-        "' es una variable protegida, no puede modificarse dentro de un ciclo"
-    show (DivisionPorCero) = "Error dinamico: division por cero"
-    show (CintaMalFormada) = "Error dinamico: Cinta mal formada"
+    show (VariableDeIteracion id) = "Error estatico: " ++
+        "La variable: '" ++ id ++ "' es una variable protegida," ++
+        "no puede modificarse dentro de un ciclo"
+    show (ErrorDeEntrada id) = "Error estatico: " ++ 
+        "En la variable v '" ++ id ++ " no pueden leerse cintas " ++
+        "de la entrada estandar"
+    show (DivisionPorCero)  = "Error dinamico: division por cero"
+    show (CintaMalFormada)  = "Error dinamico: Cinta mal formada"
 
 instance Error BrainiacError
 
@@ -267,26 +286,25 @@ analizar (I_Declare ds is) = do
     analizarInstrucciones is
     eliminarDeclaraciones ds
 analizar i@(I_Assign id exp) = do
-    t_var  <- buscarTipo id
-    tabs   <- gets tabla
-    case buscarInfoSim id tabs of
-        --  Revisar si id es una variable ligada a una iteracion
-        Just (InfoSim _ _ _ True) -> throwError $ VariableDeIteracion id
-        otherwise                 -> return ()
+    --  Revisar si id es una variable ligada a una iteracion
+    estaOcupada <- buscarOcupada id
+    if estaOcupada 
+        then throwError $ VariableDeIteracion id
+        else continue
+
+    t_var <- buscarTipo id
+    tabs  <- gets tabla
     case t_var of 
-        --  Si id es una variable cinta entonces del lado
-        --  derecho pueden verse dos casos 
+        --  Si id es tipo cinta entonces exp debe ser:
         --  [ E ] donde E es de tipo entero 
-        --  V variable tipo cinta
         Tipo_Tape -> do
             case exp of
-                {-(E_Var _)    -> chequearTipoDeExpresion     exp Tipo_Tape-}
                 (E_Corch ec) -> chequearTipoDeExpresion     ec  Tipo_Integer
                 otherwise    -> throwError $ TipoIncorrecto exp Tipo_Integer
             continue
-        --  En caso contrario se verifica que ambos lados de la asignacion
-        --  sean del mismo tipo 
         otherwise -> do
+            --  En caso contrario se verifica que ambos lados de la asignacion
+            --  sean del mismo tipo 
             chequearTipoDeExpresion exp t_var
             continue
 analizar i@(I_If cond exito) = do
@@ -312,10 +330,15 @@ analizar i@(I_From e1 e2 is) = do
     analizarInstrucciones is
 analizar i@(I_Write e)  = continue
 analizar i@(I_Read id ) = do
-    buscarTipo id 
-    continue
+    t <- buscarTipo id 
+    case t of
+        Tipo_Tape -> throwError $ ErrorDeEntrada id
+        otherwise -> continue
 analizar i@(I_Ejec cadena e) = do
-    chequearTipoDeExpresion e Tipo_Tape
+    case e of
+        (E_Var _)    -> chequearTipoDeExpresion e Tipo_Tape
+        (E_Corch ec) -> chequearTipoDeExpresion e Tipo_Integer
+        otherwise    -> throwError $ TipoIncorrecto e Tipo_Tape
     continue
 analizar i@(I_Concat e1 e2) = do
     case e1 of
@@ -327,6 +350,11 @@ analizar i@(I_Concat e1 e2) = do
         (E_Corch ec) -> chequearTipoDeExpresion ec Tipo_Integer
         otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Tape
     continue
+
+analizarInstrucciones :: [Inst] -> Analizador ()
+analizarInstrucciones = mapM_ analizar
+
+--  Dada una expresion conseguir el tipo
 
 conseguirTipo :: Exp -> Analizador Tipo
 
@@ -341,6 +369,9 @@ conseguirTipo (E_BinOp op e1 e2) = do
         otherwise -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
 conseguirTipo (E_Comp op e1 e2)  = do
     chequearTipoDeExpresiones e1 e2 Tipo_Integer
+    {-case op of-}
+        {-Op_Eq  -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean-}
+        {-Op_Neq -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean -}
     return Tipo_Boolean
 conseguirTipo (E_UnOp op e) = do
     case op of
@@ -366,9 +397,6 @@ chequearTipoDeExpresion e t = do
     if t1 == t
         then return t
         else throwError $ TipoIncorrecto e t
-
-analizarInstrucciones :: [Inst] -> Analizador ()
-analizarInstrucciones = mapM_ analizar
 
 ------------------------------------------------------------------------
 --  Corrida de un programa en Brainiac                                --
@@ -426,6 +454,10 @@ correr (I_Declare ds is) = do
     eliminarDeclaraciones ds 
 correr (I_Write e) = evaluar e >>= liftIO . putStr . show
 correr (I_Read id) = do
+    -- Conseguir un valor de la consola 
+    -- si es true o false verificar que id sea tipo boolean y hacer cambioValor
+    -- si es un numero verificar que id sea tipo integer y hacer cambiarvalor
+    -- en cualquier otro caso error de entrada dinamico
     t_var <- buscarTipo id
     {-case t_var of-}
         {-Tipo_Integer -> do-}
@@ -433,17 +465,13 @@ correr (I_Read id) = do
         {-Tipo_Boolean -> read :: IO Bool-}
         {-otherwise -> throwError $ ErrorDeEntrada id-}
     {-liftIO $ readLn-}
-    -- Conseguir un valor de la consola 
-    -- si es true o false verificar que id sea tipo boolean y hacer cambioValor
-    -- si es un numero verificar que id sea tipo integer y hacer cambiarvalor
-    -- en cualquier otro caso 
     continue
 correr (I_Ejec cadena cinta) = do
     case cinta of 
-        (E_Var v) -> do 
-            c  <- buscarValor v    
+        (E_Var id) -> do 
+            c  <- buscarValor id    
             nc <- ejecutarCadena cadena (unpackCinta c)
-            cambiarValor v (ValorCinta nc)
+            cambiarValor id (ValorCinta nc)
         otherwise -> do
             n <- evaluar cinta 
             ejecutarCadena cadena (cintaVacia $ unpackNum n)
@@ -475,13 +503,13 @@ evaluar (E_BinOp op e1 e2)   = do
     lv <- evaluar e1
     rv <- evaluar e2
     case op of 
-        Op_Sum -> return $ ValorNum $ (unpackNum lv) + (unpackNum rv)
-        Op_Res -> return $ ValorNum $ (unpackNum lv) - (unpackNum rv)
-        Op_Mul -> return $ ValorNum $ (unpackNum lv) * (unpackNum rv)
+        Op_Sum -> numBinOp (+) lv rv
+        Op_Res -> numBinOp (-) lv rv
+        Op_Mul -> numBinOp (+) lv rv
         Op_Div | (unpackNum rv) == 0 -> throwError DivisionPorCero
-        Op_Div | otherwise -> return $ ValorNum $ (unpackNum lv) `div` (unpackNum rv)
-        Op_Dis -> return $ ValorBool $ (unpackBool lv) || (unpackBool rv)
-        Op_Con -> return $ ValorBool $ (unpackBool lv) && (unpackBool rv)
+        Op_Div | otherwise -> numBinOp div lv rv
+        Op_Dis -> boolBinOp (||) lv rv
+        Op_Con -> boolBinOp (&&) lv rv
 evaluar (E_Comp op e1 e2) = do
     lv <- evaluar e1
     rv <- evaluar e2
@@ -500,6 +528,9 @@ evaluar (E_UnOp op e) = do
         Op_Inspecc -> return $ ValorNum  $ conseguirPrimero $ unpackCinta v
 evaluar (E_Paren e) = evaluar e
 evaluar (E_Corch e) = evaluar e
+
+boolBinOp op arg1 arg2 = return $ ValorBool $ unpackBool arg1 `op` unpackBool arg2
+numBinOp  op arg1 arg2 = return $ ValorNum  $ unpackNum  arg1 `op` unpackNum arg2
 
 --
 --  Definicion de la cinta y las operaciones sobre ella
@@ -524,13 +555,13 @@ moverPrimero fn c = c { primero = np }
         t  = tamano c
 
 modificarCasilla :: (Int -> Int) -> Cinta -> Cinta
-modificarCasilla fn c = c { valores = newValues }
+modificarCasilla fn c = c { valores = nuevosValores }
     where 
-        oldValue  = conseguirPrimero c
-        newValues = DM.insert (primero c) (fn oldValue) (valores c)
+        primeroAnterior = conseguirPrimero c
+        nuevosValores   = DM.insert (primero c) (fn primeroAnterior) (valores c)
 
 ejecutarCadena :: [B_Inst] -> Cinta -> Analizador Cinta
-ejecutarCadena cadena cinta = foldM evalC cinta cadena 
+ejecutarCadena cadena cinta = foldM evalC cinta cadena
 
 evalC :: Cinta -> B_Inst -> Analizador Cinta
 evalC c (C_Sum) = return $ modificarCasilla inc c
@@ -538,7 +569,7 @@ evalC c (C_Res) = return $ modificarCasilla dec c
 evalC c (C_Izq) = return $ moverPrimero dec c
 evalC c (C_Der) = return $ moverPrimero inc c
 evalC c (C_Imp) = do
-    liftIO $ putStr $ show $ C.chr $ conseguirPrimero c
+    liftIO $ putChar $ C.chr (conseguirPrimero c)
     return c
 evalC c (C_Lee) = do
     {-liftIO $ readInt -}

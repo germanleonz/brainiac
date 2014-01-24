@@ -1,11 +1,13 @@
 declare x,y :: integer; b :: boolean execute
-	b := true;
+	b := true /\ false;
 	y := 42;
 	if b then 
        x := 42
     else
        x := -1
-    done
+    done;
+    write b;
+    write y
 done
 
 
