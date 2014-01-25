@@ -4,11 +4,11 @@
 #   Autor: German Leon
 #
 
-my $x             = 'LexBrainiac.x';
-my $lexer         = 'LexBrainiac.hs';
+my $x     = 'LexBrainiac.x';
+my $lexer = 'LexBrainiac.hs';
 
-my $y             = 'SinBrainiac.y';
-my $parser        = 'SinBrainiac.hs';
+my $y      = 'SinBrainiac.y';
+my $parser = 'SinBrainiac.hs';
 
 my $context           = 'ContBrainiac.hs';
 my $context_test      = 'ContBrainiacTest.hs';

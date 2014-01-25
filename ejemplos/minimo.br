@@ -1,8 +1,6 @@
 declare x, y :: integer execute
     read x ;
-    $$ read y ;
-    $$x := 9; 
-    y := 5;
+    read y ;
     while x /= y do
         if x > y then
             x := x - y

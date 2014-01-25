@@ -120,18 +120,18 @@ Is :: { [Inst] }
       | I ';' Is                                      { $1 : $3 }
 
 I :: { Inst }
-  : ident ':=' E                                      { I_Assign $1 $3 }
+  : ident ':=' B                                      { I_Assign $1 $3 }
   | 'if' B 'then' Is 'done'                           { I_If $2 $4 }
   | 'if' B 'then' Is 'else' Is 'done'                 { I_IfElse $2 $4 $6 }
   | 'while' B 'do' Is 'done'                          { I_While $2 $4 }
-  | 'for' ident 'from' E 'to' E 'do' Is 'done'        { I_For $2 $4 $6 $8 }
-  | 'for' E 'to' E 'do' Is 'done'                     { I_From $2 $4 $6 }
+  | 'for' ident 'from' B 'to' B 'do' Is 'done'        { I_For $2 $4 $6 $8 }
+  | 'for' B 'to' B 'do' Is 'done'                     { I_From $2 $4 $6 }
   | 'declare' Ds 'execute' Is 'done'                  { I_Declare $2 $4 }
   | 'execute' Is 'done'                               { I_Declare [] $2 }
-  | 'write' E                                         { I_Write $2 }
+  | 'write' B                                         { I_Write $2 }
   | 'read' ident                                      { I_Read $2 }
-  | '{' cadena '}' 'at' E                             { I_Ejec $2 $5 }
-  | E '&' E                                           { I_Concat $1 $3 }
+  | '{' cadena '}' 'at' B                             { I_Ejec $2 $5 }
+  | B '&' B                                           { I_Concat $1 $3 }
 
 B :: { Exp }
   : E Comp_op E                                       { E_Comp $2 $1 $3 }
@@ -151,8 +151,8 @@ F :: { Exp }
   | Prefix_op F                                       { E_UnOp $1 $2 }
   | 'true'                                            { E_True }
   | 'false'                                           { E_False }
-  | '[' E ']'                                         { E_Corch $2 }   
-  | '(' E ')'                                         { E_Paren $2 }     
+  | '[' B ']'                                         { E_Corch $2 }   
+  | '(' B ')'                                         { E_Paren $2 }     
 
 cadena :: { [B_Inst] }
        : B_Inst                                       { [$1] }

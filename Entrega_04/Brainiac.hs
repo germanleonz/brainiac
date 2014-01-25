@@ -6,12 +6,13 @@
 module BrainiacMachine (
     -- * Funciones exportadas
     correr,
-    evaluar,
+    evaluar
 )
 where
 
 import Control.Monad.Error
 import Data.Char as C
+import System.IO
 
 import Cinta
 import ContBrainiac
@@ -51,7 +52,7 @@ correr i@(I_For id inf sup c) = do
             cambiarValor id $ ValN vi
             correrSecuencia c 
             go (vi + 1)
-        in go vi
+        in  go vi
 correr i@(I_From inf sup c) = do
     vi <- liftM unpackN $ evaluar inf
     vs <- liftM unpackN $ evaluar sup
@@ -59,7 +60,7 @@ correr i@(I_From inf sup c) = do
               | vi <= vs = do
             correrSecuencia c 
             go $ vi + 1
-        in go vi
+        in  go vi
 correr (I_Declare ds is) = do
     procesarDeclaraciones ds
     correrSecuencia is 
@@ -90,7 +91,9 @@ correr (I_Concat c1 c2) = do
 
 leerBooleano :: Analizador BrainVal
 leerBooleano = do
-    str <- liftIO getLine
+    tty <- liftIO $ openFile "/dev/tty" ReadMode
+    str <- liftIO $ hGetLine tty
+    liftIO $ hClose tty
     case str of 
         "true"    -> return $ ValB True
         "false"   -> return $ ValB False
@@ -98,7 +101,9 @@ leerBooleano = do
 
 leerEntero :: Analizador BrainVal
 leerEntero = do
-    str <- liftIO getLine
+    tty <- liftIO $ openFile "/dev/tty" ReadMode
+    str <- liftIO $ hGetLine tty
+    liftIO $ hClose tty
     case all isNumber str of 
         False     -> throwError $ ErrorDeEntrada Tipo_Integer
         otherwise -> return $ ValN (read str)
@@ -121,7 +126,7 @@ evaluar (E_BinOp op e1 e2)   = do
         Op_Res -> numBinOp (-) lv rv
         Op_Mul -> numBinOp (+) lv rv
         Op_Div | (unpackN rv) == 0 -> throwError DivisionPorCero
-        Op_Div | otherwise -> numBinOp div lv rv
+               | otherwise         -> numBinOp div lv rv
         Op_Dis -> boolBinOp (||) lv rv
         Op_Con -> boolBinOp (&&) lv rv
 evaluar (E_Comp op e1 e2) = do
@@ -169,8 +174,8 @@ evalC c (C_Imp) = do
     liftIO $ putChar $ C.chr (conseguirPrimero c)
     return c
 evalC c (C_Lee) = do
-    {-liftIO $ readInt -}
-    return c
+    v <- liftM unpackN leerEntero 
+    return $ modificarCasilla (\_ -> (id v)) c
 
 inc :: Int -> Int
 inc = (+1) 

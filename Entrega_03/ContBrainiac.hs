@@ -278,7 +278,6 @@ analizar i@(I_Concat e1 e2) = do
         otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Tape
     case e2 of
         (E_Var _)    -> chequearTipoDeExpresion e2 Tipo_Tape
-        (E_Corch ec) -> chequearTipoDeExpresion ec Tipo_Integer
         otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Tape
     continue
 

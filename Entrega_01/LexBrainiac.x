@@ -132,8 +132,7 @@ lexError r line col =
     " en la fila " ++ (show line) ++
     ", columna "   ++ (show col)
 
-lexer :: String 
-      -> ([String], [Token])
+lexer :: String -> ([String], [Token])
 lexer str = go ([],[]) (alexStartPos,'\n',str)
     where go (exs, txs) inp@(pos,_,str) =
             case alexScan inp 0 of

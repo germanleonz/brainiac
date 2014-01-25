@@ -8,9 +8,7 @@ main = do
     let (errores, tokens) = lexer s
     if (not . null) errores
         -- Si se encontraron errores se imprimen todos
-        then imprimirLista errores
+        then mapM_ print errores
         -- Si no se encontraron errores se imprimen los tokens generados
-        else imprimirLista tokens
+        else mapM_ (putStr . (\s -> show s ++ " ")) tokens
 
-imprimirLista :: (Show a) => [a] -> IO ()
-imprimirLista = mapM_ print
