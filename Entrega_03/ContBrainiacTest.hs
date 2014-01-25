@@ -2,7 +2,7 @@ import LexBrainiac
 import SinBrainiac
 import ContBrainiac
 
-import Control.Monad
+import Control.Monad (liftM)
 
 main :: IO ()
 main = do
