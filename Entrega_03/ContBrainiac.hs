@@ -296,8 +296,17 @@ conseguirTipo (E_BinOp op e1 e2) = do
         Op_Dis    -> chequearTipoDeExpresiones e1 e2 Tipo_Boolean
         otherwise -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
 conseguirTipo (E_Comp op e1 e2)  = do
-    chequearTipoDeExpresiones e1 e2 Tipo_Integer
-    --  Verificar Eq y Neq para booleanos
+    t1 <- conseguirTipo e1 
+    t2 <- conseguirTipo e2
+    case op of
+        --  Verificar Eq y Neq para booleanos
+        Op_Eq     -> if t1 == t2 == Tipo_Boolean
+                        then return Tipo_Boolean
+                        else chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        Op_Neq    -> if t1 == t2 == Tipo_Boolean
+                        then return Tipo_Boolean
+                        else chequearTipoDeExpresiones e1 e2 Tipo_Integer
+        otherwise -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
     return Tipo_Boolean
 conseguirTipo (E_UnOp op e) = do
     case op of

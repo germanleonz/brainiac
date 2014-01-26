@@ -133,8 +133,14 @@ evaluar (E_Comp op e1 e2) = do
     lv <- evaluar e1
     rv <- evaluar e2
     case op of 
-        Op_Eq  -> return $ ValB $ (unpackN lv) == (unpackN rv)
-        Op_Neq -> return $ ValB $ (unpackN lv) /= (unpackN rv)
+        Op_Eq  -> do
+            case lv of
+                (ValN _) -> return $ ValB $ (unpackN lv) == (unpackN rv)
+                (ValB _) -> boolBinOp (==) lv rv
+        Op_Neq -> do
+            case lv of 
+                (ValN _) -> return $ ValB $ (unpackN lv) /= (unpackN rv)
+                (ValB _) -> boolBinOp (not . ==) lv rv
         Op_Lt  -> return $ ValB $ (unpackN lv) <  (unpackN rv)
         Op_Leq -> return $ ValB $ (unpackN lv) <= (unpackN rv)
         Op_Gt  -> return $ ValB $ (unpackN lv) >  (unpackN rv)
