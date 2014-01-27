@@ -5,7 +5,7 @@
 module TablaSim (
     -- * Tipos exportados
     TablaSim (..),
-    InfoSim (..),
+    InfoSim  (..),
     BrainVal (..),
     Scope,
     -- * Funciones exportadas

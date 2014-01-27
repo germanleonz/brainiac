@@ -14,7 +14,7 @@ tokens :-
 
     $white+                       ;
     "$$".*                        ;
-    "$-"[$white .]*"-$"           ;
+    "$-" [$white .]* "-$"         ;
     declare                       { tok (\p s -> TkDeclare p)}
     execute                       { tok (\p s -> TkExecute p)}
     while                         { tok (\p s -> TkWhile p)}

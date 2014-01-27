@@ -8,17 +8,22 @@ module Cinta (
     cintaVacia,
     conseguirPrimero,
     moverPrimero,
-    modificarCasilla
+    modificarCasilla,
+    extenderCinta
 )
 where
 
+import Data.Char as C
 import qualified Data.Map as DM
 
 data Cinta = Cinta {
     primero :: Int,
     valores :: DM.Map Int Int,
     tamano  :: Int
-} deriving (Show, Eq)
+} deriving (Eq)
+
+instance Show Cinta where 
+    show c = foldl (\cs v -> cs ++ [C.chr v]) [] (DM.elems $ valores c)
 
 cintaVacia :: Int -> Cinta
 cintaVacia n = Cinta 0 DM.empty n
@@ -37,3 +42,8 @@ modificarCasilla fn c = c { valores = nuevosValores }
     where 
         pv            = conseguirPrimero c
         nuevosValores = DM.insert (primero c) (fn pv) (valores c)
+
+extenderCinta :: Int -> Cinta -> Cinta
+extenderCinta n c = c { tamano = nuevoTamano }
+    where 
+        nuevoTamano = (tamano c) + n

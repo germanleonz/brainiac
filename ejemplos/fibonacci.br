@@ -1,0 +1,5 @@
+declare n :: integer; t :: tape execute
+    read n;
+    t := [n];
+    write t
+done

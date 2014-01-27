@@ -11,4 +11,3 @@ main = do
         then mapM_ print errores
         -- Si no se encontraron errores se imprimen los tokens generados
         else mapM_ (putStr . (\s -> show s ++ " ")) tokens
-

@@ -16,9 +16,9 @@ main = do
 analisis :: Inst -> IO ()
 analisis ast = do
     res <- correrAnalizador $ analizar ast 
-    either (putStrLn . show) (\_ -> ejecutar ast) res
+    either print (\_ -> ejecutar ast) res
 
 ejecutar :: Inst -> IO ()
 ejecutar ast = do
     res <- correrAnalizador $ correr ast 
-    either (putStrLn . show) (\_ -> return ()) res
+    either print (\_ -> return ()) res

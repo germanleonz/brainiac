@@ -176,37 +176,39 @@ data BrainiacError = MultiplesDeclaraciones VarName
                    | TiposNoCoinciden Exp Exp Tipo
                    | TipoIncorrecto Exp Tipo
                    | VariableDeIteracion VarName
-                   | VariableNoInicializada VarName
+                   | VariableNoInicializada VarName 
                    | ErrorLecturaCinta VarName
-                   | DivisionPorCero
+                   | DivisionPorCero Exp
                    | CintaMalFormada
                    | ErrorDeEntrada Tipo
 
 instance Show BrainiacError where
-    show (MultiplesDeclaraciones id) = "Error estatico: " ++
-        "Redeclaracion de la variable '" ++ id ++ "'"
     show (VariableNoDeclarada id)    = "Error estatico: " ++
         "La variable '" ++ id ++ "' no ha sido declarada"
-    show (VariableNoInicializada id) = "Error estatico: " ++
-        "La variable '" ++ id ++ "' no ha sido inicializada"
+    show (MultiplesDeclaraciones id) = "Error estatico: " ++
+        "Redeclaracion de la variable '" ++ id ++ "'"
     show (TiposNoCoinciden e1 e2 t)  = "Error estatico: " ++
         "Los tipos de :\n" ++
         (show e1) ++ 
         (show e2) ++
         "Son incorrectos. Ambas expresiones deben ser de " ++ (show t)
-    show (TipoIncorrecto e1 t) = "La expresion: \n" ++
+    show (TipoIncorrecto e1 t)       = "Error estatico: " ++
+        "La expresion: \n" ++
         (show e1) ++
         "Debe ser del tipo: " ++ (show t) 
-    show (VariableDeIteracion id) = "Error estatico: " ++
+    show (VariableDeIteracion id)    = "Error estatico: " ++
         "La variable: '" ++ id ++ "' no puede ser modificada en el ciclo"
-    show (ErrorLecturaCinta id) = "Error estatico: " ++ 
-        "En la variable v '" ++ id ++ " no pueden leerse cintas " ++
+    show (ErrorLecturaCinta id)      = "Error estatico: " ++ 
+        "En la variable v '" ++ id ++ "'. No pueden leerse cintas " ++
         "de la entrada estandar"
-    show (DivisionPorCero)  = "Error dinamico: division por cero"
-    show (CintaMalFormada)  = "Error dinamico: una cinta no puede" ++
-        " tener tamano negativo"
-    show (ErrorDeEntrada t)  = "Error dinamico de lectura se esperaba un " ++
-        "valor de tipo " ++ (show t)
+    show (VariableNoInicializada id) = "Error estatico: " ++
+        "La variable '" ++ id ++ "' no ha sido inicializada"
+    show (DivisionPorCero e)  = "Error dinamico: " ++ 
+        "division por cero en la expresion:\n" ++ (show e)
+    show (CintaMalFormada)    = "Error dinamico: " ++
+        " una cinta no puede tener tamano negativo"
+    show (ErrorDeEntrada t)   = "Error dinamico " ++ 
+        "de lectura se esperaba un valor de " ++ (show t)
 
 instance Error BrainiacError
 
@@ -259,7 +261,7 @@ analizar i@(I_From e1 e2 is) = do
     chequearTipoDeExpresion e1 Tipo_Integer
     chequearTipoDeExpresion e2 Tipo_Integer
     analizarInstrucciones is
-analizar i@(I_Write e) = continue
+analizar i@(I_Write e) = conseguirTipo e >> continue 
 analizar i@(I_Read id) = do
     t <- buscarTipo id 
     case t of
@@ -273,9 +275,8 @@ analizar i@(I_Ejec cadena e) = do
     continue
 analizar i@(I_Concat e1 e2) = do
     case e1 of
-        (E_Var _)    -> chequearTipoDeExpresion e1 Tipo_Tape
         (E_Corch ec) -> chequearTipoDeExpresion e1 Tipo_Integer
-        otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Tape
+        otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Integer
     case e2 of
         (E_Var _)    -> chequearTipoDeExpresion e2 Tipo_Tape
         otherwise    -> throwError $ TipoIncorrecto e1 Tipo_Tape
@@ -299,15 +300,17 @@ conseguirTipo (E_Comp op e1 e2)  = do
     t1 <- conseguirTipo e1 
     t2 <- conseguirTipo e2
     case op of
-        --  Verificar Eq y Neq para booleanos
-        Op_Eq     -> if t1 == t2 == Tipo_Boolean
+        Op_Eq     -> if ((t1 == Tipo_Boolean) && (t2 == Tipo_Boolean)) ||
+                        ((t1 == Tipo_Integer) && (t2 == Tipo_Integer)) 
                         then return Tipo_Boolean
-                        else chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        Op_Neq    -> if t1 == t2 == Tipo_Boolean
+                        else throwError $ TiposNoCoinciden e1 e2 Tipo_Boolean
+        Op_Neq    -> if ((t1 == Tipo_Boolean) && (t2 == Tipo_Boolean)) ||
+                        ((t1 == Tipo_Integer) && (t2 == Tipo_Integer)) 
                         then return Tipo_Boolean
-                        else chequearTipoDeExpresiones e1 e2 Tipo_Integer
-        otherwise -> chequearTipoDeExpresiones e1 e2 Tipo_Integer
-    return Tipo_Boolean
+                        else throwError $ TiposNoCoinciden e1 e2 Tipo_Boolean
+        otherwise -> if (t1 == Tipo_Integer) && (t2 == Tipo_Integer)
+                        then return Tipo_Boolean
+                        else throwError $ TiposNoCoinciden e1 e2 Tipo_Integer
 conseguirTipo (E_UnOp op e) = do
     case op of
         Op_NegArit -> chequearTipoDeExpresion e Tipo_Integer

@@ -1,8 +1,10 @@
-declare x, y, k, t :: integer execute
-	x := 3 ;
-	y := 15 ;
-	for k from 1 to x do
-		t := y + 1;
-		t := 3
+declare abcdE, abcde, Execute, t :: integer execute
+	abcdE := 3 ;
+	abcde := 15 ;
+	for Execute from 1 to abcdE do
+		t := abcde + 1;
+        write t;
+		t := 3;
+        write t
 	done
 done

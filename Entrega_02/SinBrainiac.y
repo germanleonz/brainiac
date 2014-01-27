@@ -134,7 +134,7 @@ I :: { Inst }
   | B '&' B                                           { I_Concat $1 $3 }
 
 B :: { Exp }
-  : E Comp_op E                                       { E_Comp $2 $1 $3 }
+  : B Comp_op E                                       { E_Comp $2 $1 $3 }
   | E                                                 { $1 }
 
 E :: { Exp }
@@ -273,7 +273,58 @@ instance Show Tipo where
 -- Funcion de error
 --
 parseError :: [Token] -> a
-parseError tks = error $ "Error sintactico, Simbolo inesperado " ++ show (head tks)
+parseError tks = error $ "Error sintactico, " ++
+    "Simbolo inesperado \"" ++ mostrar (head tks) ++ "\""
+
+mostrar :: Token -> String
+mostrar (TkDeclare  _)       = "declare"
+mostrar (TkExecute  _)       = "execute"
+mostrar (TkWhile    _)       = "while"
+mostrar (TkFor      _)       = "for"
+mostrar (TkFrom     _)       = "from"
+mostrar (TkTo       _)       = "to"
+mostrar (TkDo       _)       = "do"
+mostrar (TkDone     _)       = "done"
+mostrar (TkInteger  _)       = "integer"
+mostrar (TkBoolean  _)       = "boolean"
+mostrar (TkTape     _)       = "tape"
+mostrar (TkIf       _)       = "if"
+mostrar (TkElse     _)       = "else"
+mostrar (TkThen     _)       = "then"
+mostrar (TkAt       _)       = "at"
+mostrar (TkRead     _)       = "read"
+mostrar (TkWrite    _)       = "write"
+mostrar (TkIdent _ id)       = id
+mostrar (TkNum   _ n )       = show n
+mostrar (TkTrue     _)       = "true"
+mostrar (TkFalse    _)       = "false"
+mostrar (TkComa     _)       = ","  
+mostrar (TkPunto    _)       = "."  
+mostrar (TkPuntoYComa     _) = ";"  
+mostrar (TkParAbre        _) = "("  
+mostrar (TkParCierra      _) = ")"  
+mostrar (TkCorcheteAbre   _) = "["  
+mostrar (TkCorcheteCierra _) = "]"  
+mostrar (TkLlaveAbre      _) = "{"  
+mostrar (TkLlaveCierra    _) = "}"  
+mostrar (TkType           _) = "::"
+mostrar (TkMas            _) = "+"  
+mostrar (TkMenos          _) = "-"  
+mostrar (TkMult           _) = "*"  
+mostrar (TkDiv            _) = "/"  
+mostrar (TkMod            _) = "%"  
+mostrar (TkConjuncion     _) = "/\\"
+mostrar (TkDisyuncion     _) = "\\/"
+mostrar (TkNegacion       _) = "~"  
+mostrar (TkMenor          _) = "<"  
+mostrar (TkMenorIgual     _) = "<="
+mostrar (TkMayor          _) = ">" 
+mostrar (TkMayorIgual     _) = ">="
+mostrar (TkIgual          _) = "=" 
+mostrar (TkDesigual       _) = "/="
+mostrar (TkConcat         _) = "&" 
+mostrar (TkInspeccion     _) = "#"  
+mostrar (TkAsignacion     _) = ":="
 
 --
 -- Impresion del AST (arbol sintactico abstracto)
@@ -319,22 +370,22 @@ impresor (I_IfElse b exito fallo) = do
 impresor (I_While b c) = do
     imprimirNoTerminal "ITERACION INDETERMINADA" 
     subirTabs
-    imprimirExpresion     "- guardia:" b
-    imprimirInstrucciones "- cuerpo:"  c
+    imprimirExpresion     "- guardia: " b
+    imprimirInstrucciones "- cuerpo: "  c
     bajarTabs
 impresor (I_For id e1 e2 c) = do
     imprimirNoTerminal "ITERACION DETERMINADA - FOR" 
     subirTabs
     imprimirNoTerminal $  "- variable: " ++ id
-    imprimirExpresion     "- e1: "     e1
-    imprimirExpresion     "- e2: " e2
+    imprimirExpresion     "- lim_inferior: "     e1
+    imprimirExpresion     "- lim_superior: "     e2
     imprimirInstrucciones "- cuerpo: " c
     bajarTabs
 impresor (I_From e1 e2 c) = do
     imprimirNoTerminal "ITERACION DETERMINADA - FROM"
     subirTabs
-    imprimirExpresion     "- lim_inferior:" e1 
-    imprimirExpresion     "- lim_superior:" e2 
+    imprimirExpresion     "- lim_inferior: " e1 
+    imprimirExpresion     "- lim_superior: " e2 
     imprimirInstrucciones "- cuerpo: "      c
     bajarTabs
 impresor (I_Declare _ is) = imprimirInstrucciones "SECUENCIACION" is
@@ -383,7 +434,7 @@ impresorE (E_Comp op e1 e2)  = do
     subirTabs
     imprimirNoTerminal $ "- operacion: " ++ (show op)
     imprimirExpresion    "- operador izquierdo: " e1
-    imprimirExpresion    "- operador derecho: " e2
+    imprimirExpresion    "- operador derecho: "   e2
     bajarTabs
 impresorE (E_UnOp op e) = do
     imprimirExpresion (show op) e

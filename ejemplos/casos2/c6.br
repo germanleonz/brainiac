@@ -1,9 +1,9 @@
-execute
-	while (x /= ((y + true) * 42)) do
+declare x,y,z :: integer execute
+	while (x /= ((y + 4) * 42)) do
 		if x > y then
-			x := true;
-			y := z + 42;
-			x := ~sopa
+			x := 8;
+			y := z + 42
+			$$x := ~sopa
 		else
 			y := y - x;
 		done
