@@ -1,7 +1,7 @@
-import BrainiacMachine
-import ContBrainiac
 import LexBrainiac
 import SinBrainiac
+import ContBrainiac
+import BrainiacMachine
 
 import Control.Monad (liftM)
 

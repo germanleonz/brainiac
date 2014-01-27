@@ -206,7 +206,7 @@ instance Show BrainiacError where
     show (DivisionPorCero e)  = "Error dinamico: " ++ 
         "division por cero en la expresion:\n" ++ (show e)
     show (CintaMalFormada)    = "Error dinamico: " ++
-        " una cinta no puede tener tamano negativo"
+        " las cintas solo pueden tener tamano mayor a cero"
     show (ErrorDeEntrada t)   = "Error dinamico " ++ 
         "de lectura se esperaba un valor de " ++ (show t)
 

@@ -173,8 +173,8 @@ ejecutarCadena cadena cinta = foldM evalC cinta cadena
 evalC :: Cinta -> B_Inst -> Analizador Cinta
 evalC c C_Sum = return $ modificarCasilla inc c
 evalC c C_Res = return $ modificarCasilla dec c
-evalC c C_Izq = return $ moverPrimero dec c
-evalC c C_Der = return $ moverPrimero inc c
+evalC c C_Izq = return $ moverPrimero     dec c
+evalC c C_Der = return $ moverPrimero     inc c
 evalC c C_Imp = do
     liftIO $ putChar $ C.chr (conseguirPrimero c)
     return c
