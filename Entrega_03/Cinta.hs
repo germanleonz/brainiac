@@ -13,8 +13,8 @@ module Cinta (
 )
 where
 
-import Data.Char as C
-import qualified Data.Map as DM
+import qualified Data.Char as C
+import qualified Data.Map  as DM
 
 data Cinta = Cinta {
     primero :: Int,

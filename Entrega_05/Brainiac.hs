@@ -180,7 +180,7 @@ evalC c C_Imp = do
     return c
 evalC c C_Lee = do
     v <- liftM unpackN leerEntero 
-    return $ modificarCasilla (\_ -> (id v)) c
+    return $ modificarCasilla (const v) c
 
 inc :: Int -> Int
 inc = (+1) 

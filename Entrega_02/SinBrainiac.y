@@ -72,19 +72,19 @@ import LexBrainiac
 %%
 
 AST :: { Inst }
-     : 'declare' Ds 'execute' Is 'done'   { I_Declare $2 $4 }
+     : 'declare' Ds 'execute' Is 'done'   { I_Declare (reverse $2) $4 }
      | 'execute' Is 'done'                { I_Declare [] $2 }
 
 Ds :: { [Declaracion] }
-            : V_Decl                      { $1 }
-            | V_Decl ';' Ds               { $1 ++ $3 }
+            : V_Decl                      { [$1] }
+            | Ds ';' V_Decl               { $3 : $1 }
 
 V_Decl :: { [Declaracion] }
-         : V_List '::' Tipo               { map (\v -> Decl v $3) $1 }
+         : V_List '::' Tipo               { map (\v -> Decl v $3) (reverse $1) }
 
 V_List :: { [VarName] }
         : ident                           { [$1] }
-        | ident ',' V_List                { $1 : $3 }
+        | V_List ',' ident                { $3 : $1 }
 
 Tipo :: { Tipo }
      : 'boolean'                          { Tipo_Boolean }
@@ -114,10 +114,13 @@ Prefix_op :: { OpUn }
           : '-'                              { Op_NegArit }
           | '~'                              { Op_NegBool }
           | '#'                              { Op_Inspecc }
-   
+
 Is :: { [Inst] }
-      : I                                             { [$1] }                         
-      | I ';' Is                                      { $1 : $3 }
+    :   Is1                                  { reverse $1 }
+   
+Is1 :: { [Inst] }
+      : I                                            { [$1] }                         
+      | Is1 ';' I                                    { $3 : $1 }
 
 I :: { Inst }
   : ident ':=' B                                      { I_Assign $1 $3 }
@@ -126,11 +129,11 @@ I :: { Inst }
   | 'while' B 'do' Is 'done'                          { I_While $2 $4 }
   | 'for' ident 'from' B 'to' B 'do' Is 'done'        { I_For $2 $4 $6 $8 }
   | 'for' B 'to' B 'do' Is 'done'                     { I_From $2 $4 $6 }
-  | 'declare' Ds 'execute' Is 'done'                  { I_Declare $2 $4 }
+  | 'declare' Ds 'execute' Is 'done'                  { I_Declare (reverse $2) $4 }
   | 'execute' Is 'done'                               { I_Declare [] $2 }
   | 'write' B                                         { I_Write $2 }
   | 'read' ident                                      { I_Read $2 }
-  | '{' cadena '}' 'at' B                             { I_Ejec $2 $5 }
+  | '{' cadena '}' 'at' B                             { I_Ejec (reverse $2) $5 }
   | B '&' B                                           { I_Concat $1 $3 }
 
 B :: { Exp }
@@ -156,7 +159,7 @@ F :: { Exp }
 
 cadena :: { [B_Inst] }
        : B_Inst                                       { [$1] }
-       | B_Inst cadena                                { $1 : $2 }
+       | cadena B_Inst                                { $2 : $1 }
 
 B_Inst :: { B_Inst }
        : '+'                    { C_Sum }
@@ -178,11 +181,11 @@ type Valor   = Int
 data Declaracion = Decl VarName Tipo deriving (Show)
 
 data Inst = I_Assign VarName Exp
-          | I_If Exp [Inst] 
+          | I_If     Exp [Inst] 
           | I_IfElse Exp [Inst] [Inst]
-          | I_While Exp [Inst]
-          | I_For VarName Exp Exp [Inst]
-          | I_From Exp Exp [Inst]
+          | I_While  Exp [Inst]
+          | I_For    VarName Exp Exp [Inst]
+          | I_From   Exp Exp [Inst]
           | I_Declare [Declaracion] [Inst]
           | I_Write Exp
           | I_Read VarName
@@ -192,12 +195,12 @@ data Inst = I_Assign VarName Exp
 instance Show Inst where show = correrImpresor . impresor 
 
 data Exp = E_Const Valor 
-         | E_Var VarName 
+         | E_Var   VarName 
          | E_True 
          | E_False 
-         | E_BinOp OpBin Exp Exp 
-         | E_Comp OpComp Exp Exp 
-         | E_UnOp OpUn Exp 
+         | E_BinOp OpBin   Exp Exp 
+         | E_Comp  OpComp Exp Exp 
+         | E_UnOp  OpUn   Exp 
          | E_Paren Exp 
          | E_Corch Exp
 

@@ -4,7 +4,7 @@
 -}
 module TablaSim (
     -- * Tipos exportados
-    TablaSim (..),
+    TablaSim,
     InfoSim  (..),
     BrainVal (..),
     Scope,
@@ -30,6 +30,7 @@ data InfoSim = InfoSim {
     tipo    :: Tipo,
     scope   :: Scope,
     valor   :: BrainVal,
+    {-valor   :: Maybe BrainVal,-}
     ocupado :: Bool
 } deriving (Show)
 
@@ -45,6 +46,7 @@ instance Show BrainVal where
     show (ValN v) = show v
     show (ValB v) = show v
     show (ValC v) = show v
+    show Null     = "Null"
 
 {-| 
     Crear una tabla de simbolos vacia    

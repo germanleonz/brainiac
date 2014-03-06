@@ -133,12 +133,12 @@ lexError r line col =
     ", columna "   ++ (show col)
 
 lexer :: String -> ([String], [Token])
-lexer str = go ([],[]) (alexStartPos,'\n',str)
-    where go (exs, txs) inp@(pos,_,str) =
+lexer str = go ([],[]) (alexStartPos,'\n',[],str)
+    where go (exs, txs) inp@(pos,_,_,str) =
             case alexScan inp 0 of
                 AlexEOF -> (exs, txs)
-                AlexError inp'@(p@(AlexPn _ line column),c,r) -> ((lexError r line column) : exs', txs')
-                    where (exs', txs') = go (exs, txs) (p,c,tail r)
+                AlexError inp'@(p@(AlexPn _ line column),c,_,r) -> ((lexError r line column) : exs', txs')
+                    where (exs', txs') = go (exs, txs) (p,c,[],tail r)
                 AlexSkip  inp' _     -> (exs', txs')
                     where (exs', txs') = go (exs, txs) inp'
                 AlexToken inp' len act -> (exs', (act pos (take len str)) : txs') 

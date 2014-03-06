@@ -72,19 +72,19 @@ import LexBrainiac
 %%
 
 AST :: { Inst }
-     : 'declare' Ds 'execute' Is 'done'   { I_Declare $2 $4 }
+     : 'declare' Ds 'execute' Is 'done'   { I_Declare (concat $ reverse $2) $4 }
      | 'execute' Is 'done'                { I_Declare [] $2 }
 
-Ds :: { [Declaracion] }
-            : V_Decl                      { $1 }
-            | V_Decl ';' Ds               { $1 ++ $3 }
+Ds :: { [[Declaracion]] }
+            : V_Decl                      { [$1] }
+            | Ds ';' V_Decl               { $3 : $1 }
 
 V_Decl :: { [Declaracion] }
-         : V_List '::' Tipo               { map (\v -> Decl v $3) $1 }
+         : V_List '::' Tipo               { map (\v -> Decl v $3) (reverse $1) }
 
 V_List :: { [VarName] }
         : ident                           { [$1] }
-        | ident ',' V_List                { $1 : $3 }
+        | V_List ',' ident                { $3 : $1 }
 
 Tipo :: { Tipo }
      : 'boolean'                          { Tipo_Boolean }
@@ -114,10 +114,13 @@ Prefix_op :: { OpUn }
           : '-'                              { Op_NegArit }
           | '~'                              { Op_NegBool }
           | '#'                              { Op_Inspecc }
-   
+
 Is :: { [Inst] }
-      : I                                             { [$1] }                         
-      | I ';' Is                                      { $1 : $3 }
+    :   Is1                                  { reverse $1 }
+   
+Is1 :: { [Inst] }
+      : I                                            { [$1] }                         
+      | Is1 ';' I                                    { $3 : $1 }
 
 I :: { Inst }
   : ident ':=' B                                      { I_Assign $1 $3 }
@@ -126,11 +129,11 @@ I :: { Inst }
   | 'while' B 'do' Is 'done'                          { I_While $2 $4 }
   | 'for' ident 'from' B 'to' B 'do' Is 'done'        { I_For $2 $4 $6 $8 }
   | 'for' B 'to' B 'do' Is 'done'                     { I_From $2 $4 $6 }
-  | 'declare' Ds 'execute' Is 'done'                  { I_Declare $2 $4 }
+  | 'declare' Ds 'execute' Is 'done'                  { I_Declare (concat $ reverse $2) $4 }
   | 'execute' Is 'done'                               { I_Declare [] $2 }
   | 'write' B                                         { I_Write $2 }
   | 'read' ident                                      { I_Read $2 }
-  | '{' cadena '}' 'at' B                             { I_Ejec $2 $5 }
+  | '{' cadena '}' 'at' B                             { I_Ejec (reverse $2) $5 }
   | B '&' B                                           { I_Concat $1 $3 }
 
 B :: { Exp }
@@ -156,7 +159,7 @@ F :: { Exp }
 
 cadena :: { [B_Inst] }
        : B_Inst                                       { [$1] }
-       | B_Inst cadena                                { $1 : $2 }
+       | cadena B_Inst                                { $2 : $1 }
 
 B_Inst :: { B_Inst }
        : '+'                    { C_Sum }
@@ -327,7 +330,7 @@ mostrar (TkInspeccion     _) = "#"
 mostrar (TkAsignacion     _) = ":="
 
 --
--- Impresion del AST (arbol sintactico abstracto)
+-- Impresion del AST (Arbol Sintactico Abstracto)
 --
 
 data PrintState = PrintState {
@@ -342,7 +345,7 @@ initialPState = PrintState {
 type AST_String = DS.Seq String
 
 correrImpresor :: Impresor () -> String
-correrImpresor = (DF.foldl (++) "") . snd . runIdentity . runWriterT . (flip runStateT initialPState)
+correrImpresor = (DF.foldr (++) "") . snd . runIdentity . runWriterT . (flip runStateT initialPState)
 
 type Impresor a = StateT PrintState (WriterT AST_String Identity) a
 
@@ -475,7 +478,7 @@ imprimirCadena :: [B_Inst] -> Impresor ()
 imprimirCadena c = do
     imprimirNoTerminal "- cadena"
     subirTabs
-    imprimirNoTerminal $ "{" ++ (concatMap show c) ++ "}" 
+    imprimirNoTerminal $ '{' : (concatMap show c) ++ "}" 
     bajarTabs
 
 imprimirInstrucciones :: String -> [Inst] -> Impresor ()

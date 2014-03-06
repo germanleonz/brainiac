@@ -326,7 +326,7 @@ chequearTipoDeExpresiones e1 e2 t = do
     t1 <- conseguirTipo e1
     t2 <- conseguirTipo e2
     if (t1 == t) && (t2 == t)
-        then return t
+        then return t -- ExpBinary op e1 e2 Bool
         else throwError $ TiposNoCoinciden e1 e2 t
 
 chequearTipoDeExpresion :: Exp -> Tipo -> Analizador Tipo
