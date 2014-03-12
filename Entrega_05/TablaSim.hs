@@ -21,7 +21,7 @@ import Data.Sequence as DS
 import qualified Data.Map as DM
 
 import Cinta
-import SinBrainiac (VarName, Tipo)
+import Language
 
 data TablaSim = TablaSim (DM.Map VarName (Seq InfoSim))
     deriving (Show)

@@ -1,3 +1,4 @@
+import Language
 import LexBrainiac
 import SinBrainiac
 import ContBrainiac
